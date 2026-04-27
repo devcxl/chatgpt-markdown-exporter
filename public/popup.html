@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=380" />
+  <title>ChatGPT Markdown Exporter</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 380px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 13px;
+      color: #0f172a;
+      background: #fff;
+    }
+
+    .root {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .title { font-size: 15px; font-weight: 700; }
+    .subtitle { margin-top: 2px; font-size: 12px; color: #64748b; }
+
+    .section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: #1e293b;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .conversation-list {
+      min-height: 120px;
+      max-height: 300px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #f8fafc;
+    }
+
+    .conversation-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 4px 2px;
+    }
+
+    .conversation-text {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .conversation-title {
+      font-size: 13px;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .conversation-meta,
+    .placeholder,
+    .status {
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .placeholder {
+      padding: 12px 6px;
+    }
+
+    .status {
+      min-height: 18px;
+      line-height: 1.4;
+      margin: 0;
+    }
+
+    .status[data-tone="success"] { color: #047857; }
+    .status[data-tone="warning"] { color: #b45309; }
+    .status[data-tone="error"]   { color: #b91c1c; }
+
+    button {
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+      font-family: inherit;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .secondary-button {
+      border-radius: 10px;
+      padding: 7px 10px;
+      font-size: 12px;
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+
+    .primary-button {
+      border-radius: 10px;
+      padding: 9px 12px;
+      font-size: 13px;
+      background: #111827;
+      color: #fff;
+    }
+
+    .error-banner {
+      padding: 12px;
+      border-radius: 12px;
+      background: #fef2f2;
+      color: #991b1b;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="root">
+    <div class="header">
+      <div>
+        <div class="title">ChatGPT Exporter</div>
+        <div class="subtitle">批量导出面板</div>
+      </div>
+    </div>
+    <section class="section">
+      <label class="checkbox-row"><input data-role="frontmatter" type="checkbox" checked />包含 YAML frontmatter</label>
+      <label class="checkbox-row"><input data-role="timestamps" type="checkbox" />包含消息时间</label>
+      <label class="checkbox-row"><input data-role="timestamp24h" type="checkbox" checked />使用 24 小时制</label>
+    </section>
+    <section class="section">
+      <div class="section-header">
+        <span>批量导出（最近 100 条）</span>
+        <button class="secondary-button" type="button" data-role="refresh">加载 / 刷新</button>
+      </div>
+      <div class="toolbar">
+        <button class="secondary-button" type="button" data-role="select-all">全选</button>
+        <button class="secondary-button" type="button" data-role="clear-selection">清空</button>
+      </div>
+      <div class="conversation-list" data-role="conversation-list"></div>
+      <button class="primary-button" type="button" data-role="export-selected">导出所选为 ZIP</button>
+    </section>
+    <p class="status" data-role="status">正在检测当前页面…</p>
+  </div>
+  <script type="module" src="popup/index.js"></script>
+</body>
+</html>
