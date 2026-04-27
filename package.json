@@ -1,0 +1,26 @@
+{
+  "name": "chatgpt-md-exporter-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/build.mjs --watch",
+    "build": "node scripts/build.mjs",
+    "package:firefox": "npm run build && node scripts/package.mjs firefox",
+    "package:chrome": "npm run build && node scripts/package.mjs chrome",
+    "package:all": "npm run package:firefox && npm run package:chrome",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "sanitize-filename": "^1.6.3",
+    "webextension-polyfill": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.20",
+    "@types/webextension-polyfill": "^0.12.3",
+    "typescript": "^5.5.2",
+    "vite": "^5.3.2",
+    "web-ext": "^10.1.0"
+  }
+}
