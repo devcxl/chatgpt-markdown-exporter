@@ -1,6 +1,6 @@
 // src/content/types.ts
 
-export type AuthorRole = "system" | "assistant" | "user" | "tool";
+export type AuthorRole = 'system' | 'assistant' | 'user' | 'tool';
 
 export interface ApiConversation {
   id?: string;
@@ -57,64 +57,64 @@ export interface ConversationNodeMessage {
 
 export type ConversationContent =
   | {
-      content_type: "text";
-      parts: string[];
-    }
+    content_type: 'text';
+    parts: string[];
+  }
   | {
-      content_type: "code";
-      language?: string;
-      text: string;
-    }
+    content_type: 'code';
+    language?: string;
+    text: string;
+  }
   | {
-      content_type: "execution_output";
-      text: string;
-    }
+    content_type: 'execution_output';
+    text: string;
+  }
   | {
-      content_type: "multimodal_text";
-      parts: Array<string | MultimodalPart>;
-    }
+    content_type: 'multimodal_text';
+    parts: Array<string | MultimodalPart>;
+  }
   | {
-      content_type: "tether_quote";
-      title?: string;
-      text?: string;
-      url?: string;
-      domain?: string;
-    }
+    content_type: 'tether_quote';
+    title?: string;
+    text?: string;
+    url?: string;
+    domain?: string;
+  }
   | {
-      content_type: "tether_browsing_display";
-      result?: string;
-      summary?: string;
-    }
+    content_type: 'tether_browsing_display';
+    result?: string;
+    summary?: string;
+  }
   | {
-      content_type: "thoughts";
-      thoughts?: unknown[];
-    }
+    content_type: 'thoughts';
+    thoughts?: unknown[];
+  }
   | {
-      content_type: "reasoning_recap";
-      content?: string;
-    }
+    content_type: 'reasoning_recap';
+    content?: string;
+  }
   | {
-      content_type: "model_editable_context" | "user_editable_context";
-      [key: string]: unknown;
-    }
+    content_type: 'model_editable_context' | 'user_editable_context';
+    [key: string]: unknown;
+  }
   | {
-      content_type: string;
-      [key: string]: unknown;
-    };
+    content_type: string;
+    [key: string]: unknown;
+  };
 
 export type MultimodalPart =
   | {
-      content_type: "image_asset_pointer";
-      asset_pointer: string;
-    }
+    content_type: 'image_asset_pointer';
+    asset_pointer: string;
+  }
   | {
-      content_type: "audio_transcription";
-      text: string;
-    }
+    content_type: 'audio_transcription';
+    text: string;
+  }
   | {
-      content_type: string;
-      [key: string]: unknown;
-    };
+    content_type: string;
+    [key: string]: unknown;
+  };
 
 export interface MessageMeta {
   model_slug?: string;
@@ -132,7 +132,7 @@ export interface MessageMeta {
     status?: string;
     messages?: Array<{
       image_url: string;
-      message_type: "image" | string;
+      message_type: 'image' | string;
       width?: number;
       height?: number;
     }>;

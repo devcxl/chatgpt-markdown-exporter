@@ -1,13 +1,13 @@
-import { fetchShareConversationFromPage, getChatIdFromUrl, isSharePage } from "./page";
+import { fetchShareConversationFromPage, getChatIdFromUrl, isSharePage } from './page';
 import type {
   ApiConversation,
   ApiConversationItem,
-  ApiConversations
-} from "./types";
+  ApiConversations,
+} from './types';
 
 const API_MAPPING: Record<string, string> = {
-  "https://chat.openai.com": "https://chat.openai.com/backend-api",
-  "https://chatgpt.com": "https://chatgpt.com/backend-api"
+  'https://chat.openai.com': 'https://chat.openai.com/backend-api',
+  'https://chatgpt.com': 'https://chatgpt.com/backend-api',
 };
 
 type ApiAccountsCheck = {
@@ -33,12 +33,12 @@ function getApiUrl(): string {
 
 function getCookie(key: string): string {
   return document.cookie
-    .split(";")
-    .map((value) => value.trim())
-    .find((value) => value.startsWith(`${key}=`))
-    ?.split("=")
+    .split(';')
+    .map(value => value.trim())
+    .find(value => value.startsWith(`${key}=`))
+    ?.split('=')
     .slice(1)
-    .join("=") ?? "";
+    .join('=') ?? '';
 }
 
 function resetApiCache(): void {
@@ -48,7 +48,7 @@ function resetApiCache(): void {
 
 async function fetchSessionAccessToken(): Promise<string | null> {
   const response = await fetch(`${getBaseUrl()}/api/auth/session`, {
-    credentials: "include"
+    credentials: 'include',
   });
 
   if (!response.ok) {
@@ -71,8 +71,9 @@ async function getAccessToken(): Promise<string> {
       return sessionToken;
     }
 
-    throw new Error("获取 ChatGPT 访问令牌失败，请确认你已登录并且页面已加载完成。");
-  } catch (error) {
+    throw new Error('获取 ChatGPT 访问令牌失败，请确认你已登录并且页面已加载完成。');
+  }
+  catch (error) {
     accessTokenPromise = null;
     throw error;
   }
@@ -81,7 +82,7 @@ async function getAccessToken(): Promise<string> {
 async function getTeamAccountId(accessToken: string): Promise<string | null> {
   if (!teamAccountIdPromise) {
     teamAccountIdPromise = (async () => {
-      const workspaceId = getCookie("_account");
+      const workspaceId = getCookie('_account');
 
       if (!workspaceId) {
         return null;
@@ -89,9 +90,9 @@ async function getTeamAccountId(accessToken: string): Promise<string | null> {
 
       const response = await fetch(`${getApiUrl()}/accounts/check/v4-2023-04-27`, {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "X-Authorization": `Bearer ${accessToken}`
-        }
+          'Authorization': `Bearer ${accessToken}`,
+          'X-Authorization': `Bearer ${accessToken}`,
+        },
       });
 
       if (!response.ok) {
@@ -109,23 +110,23 @@ async function getTeamAccountId(accessToken: string): Promise<string | null> {
 async function fetchApi<T>(
   path: string,
   init: RequestInit = {},
-  retryUnauthorized = true
+  retryUnauthorized = true,
 ): Promise<T> {
   const accessToken = await getAccessToken();
   const accountId = await getTeamAccountId(accessToken);
   const headers = new Headers(init.headers);
 
-  headers.set("Authorization", `Bearer ${accessToken}`);
-  headers.set("X-Authorization", `Bearer ${accessToken}`);
+  headers.set('Authorization', `Bearer ${accessToken}`);
+  headers.set('X-Authorization', `Bearer ${accessToken}`);
 
   if (accountId) {
-    headers.set("Chatgpt-Account-Id", accountId);
+    headers.set('Chatgpt-Account-Id', accountId);
   }
 
   const response = await fetch(`${getApiUrl()}${path}`, {
     ...init,
-    credentials: "include",
-    headers
+    credentials: 'include',
+    headers,
   });
 
   if (response.status === 401 && retryUnauthorized) {
@@ -136,7 +137,7 @@ async function fetchApi<T>(
   if (!response.ok) {
     const detail = await readErrorDetail(response);
     throw new Error(
-      `ChatGPT API 请求失败：${response.status} ${response.statusText}${detail ? ` - ${detail}` : ""}`
+      `ChatGPT API 请求失败：${response.status} ${response.statusText}${detail ? ` - ${detail}` : ''}`,
     );
   }
 
@@ -146,9 +147,10 @@ async function fetchApi<T>(
 async function readErrorDetail(response: Response): Promise<string> {
   try {
     const detail = await response.text();
-    return detail.replace(/\s+/g, " ").trim().slice(0, 240);
-  } catch {
-    return "";
+    return detail.replace(/\s+/g, ' ').trim().slice(0, 240);
+  }
+  catch {
+    return '';
   }
 }
 
@@ -156,24 +158,24 @@ export function getCurrentChatId(): string {
   const chatId = getChatIdFromUrl();
 
   if (!chatId) {
-    throw new Error("当前页面没有会话 ID，请先打开一个 ChatGPT 会话。");
+    throw new Error('当前页面没有会话 ID，请先打开一个 ChatGPT 会话。');
   }
 
   return isSharePage() ? `__share__${chatId}` : chatId;
 }
 
 export async function fetchConversation(chatId = getCurrentChatId()): Promise<ApiConversation & { id: string }> {
-  if (chatId.startsWith("__share__")) {
-    const id = chatId.replace("__share__", "");
+  if (chatId.startsWith('__share__')) {
+    const id = chatId.replace('__share__', '');
     const shareConversation = await fetchShareConversationFromPage();
 
     if (!shareConversation) {
-      throw new Error("读取分享页会话数据失败，请刷新页面后重试。");
+      throw new Error('读取分享页会话数据失败，请刷新页面后重试。');
     }
 
     return {
       id,
-      ...(shareConversation as ApiConversation)
+      ...(shareConversation as ApiConversation),
     };
   }
 
@@ -181,17 +183,17 @@ export async function fetchConversation(chatId = getCurrentChatId()): Promise<Ap
 
   return {
     id: chatId,
-    ...conversation
+    ...conversation,
   };
 }
 
 export async function fetchConversations(
   offset = 0,
-  limit = 100
+  limit = 100,
 ): Promise<ApiConversations> {
   const params = new URLSearchParams({
     offset: String(offset),
-    limit: String(limit)
+    limit: String(limit),
   });
 
   return fetchApi<ApiConversations>(`/conversations?${params.toString()}`);
@@ -199,7 +201,7 @@ export async function fetchConversations(
 
 export async function fetchAllConversations(
   maxConversations = 100,
-  onBatch?: (items: ApiConversationItem[]) => void
+  onBatch?: (items: ApiConversationItem[]) => void,
 ): Promise<ApiConversationItem[]> {
   const items: ApiConversationItem[] = [];
   const limit = Math.min(100, maxConversations);
@@ -219,7 +221,7 @@ export async function fetchAllConversations(
       break;
     }
 
-    if (typeof result.total === "number" && items.length >= result.total) {
+    if (typeof result.total === 'number' && items.length >= result.total) {
       break;
     }
   }

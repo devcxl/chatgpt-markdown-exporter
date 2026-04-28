@@ -1,4 +1,4 @@
-import sanitizeFilename from "sanitize-filename";
+import sanitizeFilename from 'sanitize-filename';
 
 export type NamedTextFile = {
   filename: string;
@@ -8,7 +8,7 @@ export type NamedTextFile = {
 export function buildMarkdownFilename(
   title: string,
   chatId: string,
-  date = new Date()
+  date = new Date(),
 ): string {
   const safeTitle = sanitizeFilename(title).trim();
   const datePrefix = date.toISOString().slice(0, 10);
@@ -22,37 +22,37 @@ export function buildCurrentMarkdownFilename(title: string, chatId: string): str
 }
 
 export function buildZipFilename(date = new Date()): string {
-  const stamp = date.toISOString().replace(/[:.]/g, "-");
+  const stamp = date.toISOString().replace(/[:.]/g, '-');
   return `chatgpt-export-${stamp}.zip`;
 }
 
 export function sanitizeDownloadPath(
   input: string,
-  fallback = "download.txt"
+  fallback = 'download.txt',
 ): string {
   const segments = input
-    .split("/")
-    .map((segment) => sanitizeFilename(segment).trim())
+    .split('/')
+    .map(segment => sanitizeFilename(segment).trim())
     .filter(Boolean);
 
   if (segments.length === 0) {
     return fallback;
   }
 
-  return segments.join("/");
+  return segments.join('/');
 }
 
 export function dedupeNamedFiles<T extends { filename: string }>(files: T[]): T[] {
   const used = new Set<string>();
 
   return files.map((file) => {
-    const safeFilename = sanitizeDownloadPath(file.filename, "conversation.md");
+    const safeFilename = sanitizeDownloadPath(file.filename, 'conversation.md');
     const uniqueFilename = buildUniqueFilename(safeFilename, used);
     used.add(uniqueFilename);
 
     return {
       ...file,
-      filename: uniqueFilename
+      filename: uniqueFilename,
     };
   });
 }
@@ -76,18 +76,18 @@ function buildUniqueFilename(filename: string, used: Set<string>): string {
 }
 
 function splitFilename(filename: string): { base: string; ext: string } {
-  const slashIndex = filename.lastIndexOf("/");
-  const dotIndex = filename.lastIndexOf(".");
+  const slashIndex = filename.lastIndexOf('/');
+  const dotIndex = filename.lastIndexOf('.');
 
   if (dotIndex <= slashIndex) {
     return {
       base: filename,
-      ext: ""
+      ext: '',
     };
   }
 
   return {
     base: filename.slice(0, dotIndex),
-    ext: filename.slice(dotIndex)
+    ext: filename.slice(dotIndex),
   };
 }

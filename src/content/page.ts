@@ -2,20 +2,20 @@
 
 export function getChatIdFromUrl(): string | null {
   const match = location.pathname.match(
-    /^\/(?:share|c|g\/[a-z0-9-]+\/c)\/([a-z0-9-]+)/i
+    /^\/(?:share|c|g\/[a-z0-9-]+\/c)\/([a-z0-9-]+)/i,
   );
 
   return match?.[1] ?? null;
 }
 
 export function isSharePage(): boolean {
-  return location.pathname.startsWith("/share")
-    && !location.pathname.endsWith("/continue");
+  return location.pathname.startsWith('/share')
+    && !location.pathname.endsWith('/continue');
 }
 
 export async function fetchShareConversationFromPage(): Promise<unknown | null> {
   const response = await fetch(location.href, {
-    credentials: "include"
+    credentials: 'include',
   });
 
   if (!response.ok) {
@@ -23,9 +23,9 @@ export async function fetchShareConversationFromPage(): Promise<unknown | null> 
   }
 
   const html = await response.text();
-  const doc = new DOMParser().parseFromString(html, "text/html");
+  const doc = new DOMParser().parseFromString(html, 'text/html');
 
-  const nextData = doc.querySelector("#__NEXT_DATA__")?.textContent;
+  const nextData = doc.querySelector('#__NEXT_DATA__')?.textContent;
 
   if (nextData) {
     const parsed = JSON.parse(nextData) as {
@@ -35,7 +35,7 @@ export async function fetchShareConversationFromPage(): Promise<unknown | null> 
     return parsed.props?.pageProps?.serverResponse?.data ?? null;
   }
 
-  const remixContext = extractAssignedJson(html, "window.__remixContext");
+  const remixContext = extractAssignedJson(html, 'window.__remixContext');
 
   if (!remixContext) {
     return null;
@@ -53,7 +53,7 @@ export async function fetchShareConversationFromPage(): Promise<unknown | null> 
     };
   };
 
-  return parsed.state?.loaderData?.["routes/share.$shareId.($action)"]?.serverResponse?.data ?? null;
+  return parsed.state?.loaderData?.['routes/share.$shareId.($action)']?.serverResponse?.data ?? null;
 }
 
 function extractAssignedJson(source: string, variableName: string): string | null {
@@ -63,7 +63,7 @@ function extractAssignedJson(source: string, variableName: string): string | nul
     return null;
   }
 
-  const objectStart = source.indexOf("{", startIndex);
+  const objectStart = source.indexOf('{', startIndex);
 
   if (objectStart === -1) {
     return null;
@@ -81,7 +81,7 @@ function extractAssignedJson(source: string, variableName: string): string | nul
       continue;
     }
 
-    if (char === "\\") {
+    if (char === '\\') {
       escapeNext = true;
       continue;
     }
@@ -95,9 +95,10 @@ function extractAssignedJson(source: string, variableName: string): string | nul
       continue;
     }
 
-    if (char === "{") {
+    if (char === '{') {
       depth += 1;
-    } else if (char === "}") {
+    }
+    else if (char === '}') {
       depth -= 1;
 
       if (depth === 0) {

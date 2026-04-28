@@ -1,6 +1,6 @@
-import JSZip from "jszip";
-import browser from "webextension-polyfill";
-import { dedupeNamedFiles, sanitizeDownloadPath } from "./shared/files";
+import JSZip from 'jszip';
+import browser from 'webextension-polyfill';
+import { dedupeNamedFiles, sanitizeDownloadPath } from './shared/files';
 import {
   isContentScriptReadyMessage,
   isDownloadMessage,
@@ -8,17 +8,17 @@ import {
   isRequestConversationListMessage,
   isRequestExportConversationsMessage,
   type ConversationListResponse,
-  type RuntimeResponse
-} from "./shared/messages";
+  type RuntimeResponse,
+} from './shared/messages';
 
 const MAX_ZIP_FILES = 100;
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;
 const MAX_ZIP_TOTAL_BYTES = 12 * 1024 * 1024;
 const CHATGPT_TAB_URL_PATTERNS = [
-  "https://chatgpt.com/*",
-  "https://chat.openai.com/*"
+  'https://chatgpt.com/*',
+  'https://chat.openai.com/*',
 ] as const;
-const IS_FIREFOX = typeof navigator !== "undefined" && /firefox/i.test(navigator.userAgent);
+const IS_FIREFOX = typeof navigator !== 'undefined' && /firefox/i.test(navigator.userAgent);
 
 // 已就绪的内容脚本标签页集合
 const readyTabs = new Set<number>();
@@ -57,25 +57,26 @@ browser.runtime.onMessage.addListener((message: unknown, sender: browser.Runtime
   }
 
   try {
-    if (message.type === "DOWNLOAD_MARKDOWN") {
+    if (message.type === 'DOWNLOAD_MARKDOWN') {
       if (!isNamedTextFile(message.file)) {
-        throw new Error("无效的下载参数。");
+        throw new Error('无效的下载参数。');
       }
 
       void downloadTextFile(message.file.filename, message.file.content, message.saveAs);
       return { ok: true };
     }
 
-    if (!Array.isArray(message.files) || message.files.some((file) => !isNamedTextFile(file))) {
-      throw new Error("无效的 ZIP 下载参数。");
+    if (!Array.isArray(message.files) || message.files.some(file => !isNamedTextFile(file))) {
+      throw new Error('无效的 ZIP 下载参数。');
     }
 
     void downloadZipFile(message.filename, message.files, message.saveAs);
     return { ok: true };
-  } catch (error) {
+  }
+  catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 });
@@ -84,47 +85,49 @@ async function handlePopupConversationListRequest(): Promise<ConversationListRes
   const tabId = await findChatGPTTabId();
 
   if (tabId === null) {
-    return { ok: false, error: "未找到 ChatGPT 标签页，请先打开 chatgpt.com。" };
+    return { ok: false, error: '未找到 ChatGPT 标签页，请先打开 chatgpt.com。' };
   }
 
   // 等待 content script 就绪（必要时注入）
   const ok = await ensureTabReady(tabId);
 
   if (!ok) {
-    return { ok: false, error: "未能连接到 ChatGPT 页面，请刷新后重试。" };
+    return { ok: false, error: '未能连接到 ChatGPT 页面，请刷新后重试。' };
   }
 
   try {
-    return await browser.tabs.sendMessage(tabId, { type: "REQUEST_CONVERSATION_LIST" }) as ConversationListResponse;
-  } catch (error) {
+    return await browser.tabs.sendMessage(tabId, { type: 'REQUEST_CONVERSATION_LIST' }) as ConversationListResponse;
+  }
+  catch (error) {
     return { ok: false, error: `通信失败：${error instanceof Error ? error.message : String(error)}` };
   }
 }
 
 async function handlePopupExportRequest(
-  request: { chatIds: string[]; includeFrontmatter: boolean; includeTimestamps: boolean; timestamp24h: boolean }
+  request: { chatIds: string[]; includeFrontmatter: boolean; includeTimestamps: boolean; timestamp24h: boolean },
 ): Promise<RuntimeResponse> {
   const tabId = await findChatGPTTabId();
 
   if (tabId === null) {
-    return { ok: false, error: "未找到 ChatGPT 标签页，请先打开 chatgpt.com。" };
+    return { ok: false, error: '未找到 ChatGPT 标签页，请先打开 chatgpt.com。' };
   }
 
   const ok = await ensureTabReady(tabId);
 
   if (!ok) {
-    return { ok: false, error: "未能连接到 ChatGPT 页面，请刷新后重试。" };
+    return { ok: false, error: '未能连接到 ChatGPT 页面，请刷新后重试。' };
   }
 
   try {
     return await browser.tabs.sendMessage(tabId, {
-      type: "REQUEST_EXPORT_CONVERSATIONS",
+      type: 'REQUEST_EXPORT_CONVERSATIONS',
       chatIds: request.chatIds,
       includeFrontmatter: request.includeFrontmatter,
       includeTimestamps: request.includeTimestamps,
-      timestamp24h: request.timestamp24h
+      timestamp24h: request.timestamp24h,
     }) as RuntimeResponse;
-  } catch (error) {
+  }
+  catch (error) {
     return { ok: false, error: `通信失败：${error instanceof Error ? error.message : String(error)}` };
   }
 }
@@ -133,7 +136,7 @@ async function findChatGPTTabId(): Promise<number | null> {
   const tabs = await browser.tabs.query({
     active: true,
     currentWindow: true,
-    url: [...CHATGPT_TAB_URL_PATTERNS]
+    url: [...CHATGPT_TAB_URL_PATTERNS],
   });
 
   if (tabs[0]?.id != null) {
@@ -142,7 +145,7 @@ async function findChatGPTTabId(): Promise<number | null> {
 
   // 降级：查找所有窗口
   const allTabs = await browser.tabs.query({
-    url: [...CHATGPT_TAB_URL_PATTERNS]
+    url: [...CHATGPT_TAB_URL_PATTERNS],
   });
 
   if (allTabs[0]?.id != null) {
@@ -164,20 +167,22 @@ async function ensureTabReady(tabId: number): Promise<boolean> {
   try {
     await browser.scripting.executeScript({
       target: { tabId },
-      files: ["/content/index.js"]
+      files: ['/content/index.js'],
     });
     injected = true;
-  } catch {
+  }
+  catch {
     // scripting 失败，尝试 tabs 降级
   }
 
   if (!injected) {
     try {
       await browser.tabs.executeScript(tabId, {
-        file: "/content/index.js"
+        file: '/content/index.js',
       });
       injected = true;
-    } catch {
+    }
+    catch {
       return false;
     }
   }
@@ -187,7 +192,7 @@ async function ensureTabReady(tabId: number): Promise<boolean> {
     if (readyTabs.has(tabId)) {
       return true;
     }
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 100));
   }
 
   return false;
@@ -196,7 +201,7 @@ async function ensureTabReady(tabId: number): Promise<boolean> {
 async function ensureExporterOnOpenTabs(): Promise<void> {
   try {
     const tabs = await browser.tabs.query({
-      url: [...CHATGPT_TAB_URL_PATTERNS]
+      url: [...CHATGPT_TAB_URL_PATTERNS],
     });
 
     await Promise.all(tabs.map(async (tab) => {
@@ -206,20 +211,21 @@ async function ensureExporterOnOpenTabs(): Promise<void> {
 
       await ensureTabReady(tab.id);
     }));
-  } catch (error) {
-    console.error("为已打开页面注入导出按钮失败", error);
+  }
+  catch (error) {
+    console.error('为已打开页面注入导出按钮失败', error);
   }
 }
 
 async function downloadTextFile(
   filename: string,
   content: string,
-  saveAs = true
+  saveAs = true,
 ): Promise<void> {
-  ensureTextSize(content, MAX_TEXT_BYTES, "单个 Markdown 文件过大，已拒绝下载。");
+  ensureTextSize(content, MAX_TEXT_BYTES, '单个 Markdown 文件过大，已拒绝下载。');
 
   const blob = new Blob([content], {
-    type: "text/markdown;charset=utf-8"
+    type: 'text/markdown;charset=utf-8',
   });
 
   await downloadBlob(blob, filename, saveAs);
@@ -228,10 +234,10 @@ async function downloadTextFile(
 async function downloadZipFile(
   filename: string,
   files: Array<{ filename: string; content: string }>,
-  saveAs = true
+  saveAs = true,
 ): Promise<void> {
   if (files.length === 0) {
-    throw new Error("没有可下载的文件。");
+    throw new Error('没有可下载的文件。');
   }
 
   if (files.length > MAX_ZIP_FILES) {
@@ -247,7 +253,7 @@ async function downloadZipFile(
   }
 
   if (totalBytes > MAX_ZIP_TOTAL_BYTES) {
-    throw new Error("导出内容总量过大，请缩小批量范围后重试。");
+    throw new Error('导出内容总量过大，请缩小批量范围后重试。');
   }
 
   const zip = new JSZip();
@@ -257,18 +263,18 @@ async function downloadZipFile(
   }
 
   const blob = await zip.generateAsync({
-    type: "blob",
-    compression: "DEFLATE",
+    type: 'blob',
+    compression: 'DEFLATE',
     compressionOptions: {
-      level: 6
-    }
+      level: 6,
+    },
   });
 
   await downloadBlob(blob, filename, saveAs);
 }
 
 async function downloadBlob(blob: Blob, filename: string, saveAs: boolean): Promise<void> {
-  const safeFilename = sanitizeDownloadPath(filename, "download.bin");
+  const safeFilename = sanitizeDownloadPath(filename, 'download.bin');
   const url = IS_FIREFOX
     ? URL.createObjectURL(blob)
     : await blobToDataUrl(blob);
@@ -280,9 +286,10 @@ async function downloadBlob(blob: Blob, filename: string, saveAs: boolean): Prom
       url,
       filename: safeFilename,
       saveAs,
-      conflictAction: "uniquify"
+      conflictAction: 'uniquify',
     });
-  } catch (error) {
+  }
+  catch (error) {
     if (IS_FIREFOX) {
       URL.revokeObjectURL(url);
     }
@@ -308,7 +315,7 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
   const buffer = await blob.arrayBuffer();
   const bytes = new Uint8Array(buffer);
   const chunkSize = 0x8000;
-  let binary = "";
+  let binary = '';
 
   for (let index = 0; index < bytes.length; index += chunkSize) {
     const chunk = bytes.subarray(index, index + chunkSize);
@@ -331,7 +338,7 @@ function revokeObjectUrlAfterDownload(url: string, downloadId: number): Promise<
         return;
       }
 
-      if (delta.state?.current === "complete" || delta.state?.current === "interrupted") {
+      if (delta.state?.current === 'complete' || delta.state?.current === 'interrupted') {
         cleanup();
       }
     };

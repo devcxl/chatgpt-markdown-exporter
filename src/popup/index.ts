@@ -1,4 +1,4 @@
-import browser from "webextension-polyfill";
+import browser from 'webextension-polyfill';
 
 interface ConversationItem {
   id: string;
@@ -18,37 +18,41 @@ const state: State = {
   conversations: [],
   isLoading: false,
   isBusy: false,
-  contentReady: false
+  contentReady: false,
 };
 
-const statusEl = el<HTMLParagraphElement>("[data-role='status']");
-const listEl = el<HTMLDivElement>("[data-role='conversation-list']");
-const refreshBtn = el<HTMLButtonElement>("[data-role='refresh']");
-const selectAllBtn = el<HTMLButtonElement>("[data-role='select-all']");
-const clearSelectionBtn = el<HTMLButtonElement>("[data-role='clear-selection']");
-const exportBtn = el<HTMLButtonElement>("[data-role='export-selected']");
-const frontmatterInput = el<HTMLInputElement>("[data-role='frontmatter']");
-const timestampsInput = el<HTMLInputElement>("[data-role='timestamps']");
-const timestamp24hInput = el<HTMLInputElement>("[data-role='timestamp24h']");
+const statusEl = el<HTMLParagraphElement>('[data-role=\'status\']');
+const listEl = el<HTMLDivElement>('[data-role=\'conversation-list\']');
+const refreshBtn = el<HTMLButtonElement>('[data-role=\'refresh\']');
+const selectAllBtn = el<HTMLButtonElement>('[data-role=\'select-all\']');
+const clearSelectionBtn = el<HTMLButtonElement>('[data-role=\'clear-selection\']');
+const exportBtn = el<HTMLButtonElement>('[data-role=\'export-selected\']');
+const frontmatterInput = el<HTMLInputElement>('[data-role=\'frontmatter\']');
+const timestampsInput = el<HTMLInputElement>('[data-role=\'timestamps\']');
+const timestamp24hInput = el<HTMLInputElement>('[data-role=\'timestamp24h\']');
 
-refreshBtn.addEventListener("click", () => { void loadConversations(); });
-selectAllBtn.addEventListener("click", () => setAllSelections(true));
-clearSelectionBtn.addEventListener("click", () => setAllSelections(false));
-exportBtn.addEventListener("click", () => { void exportSelected(); });
+refreshBtn.addEventListener('click', () => {
+  void loadConversations();
+});
+selectAllBtn.addEventListener('click', () => setAllSelections(true));
+clearSelectionBtn.addEventListener('click', () => setAllSelections(false));
+exportBtn.addEventListener('click', () => {
+  void exportSelected();
+});
 
 void init();
 
 async function init(): Promise<void> {
-  setStatus("正在连接…");
+  setStatus('正在连接…');
 
-  const result = await browser.runtime.sendMessage({ type: "REQUEST_CONVERSATION_LIST" }) as {
+  const result = await browser.runtime.sendMessage({ type: 'REQUEST_CONVERSATION_LIST' }) as {
     ok: boolean;
     error?: string;
     conversations?: ConversationItem[];
   };
 
   if (!result?.ok) {
-    showError(result?.error ?? "连接失败，请确认当前在 ChatGPT 页面。");
+    showError(result?.error ?? '连接失败，请确认当前在 ChatGPT 页面。');
     return;
   }
 
@@ -59,9 +63,10 @@ async function init(): Promise<void> {
   render();
 
   if (state.conversations.length === 0) {
-    setStatus("没有可导出的会话。", "warning");
-  } else {
-    setStatus(`会话列表已加载，共 ${state.conversations.length} 条。`, "success");
+    setStatus('没有可导出的会话。', 'warning');
+  }
+  else {
+    setStatus(`会话列表已加载，共 ${state.conversations.length} 条。`, 'success');
   }
 }
 
@@ -75,30 +80,33 @@ async function loadConversations(): Promise<void> {
   updateControls();
   render();
 
-  setStatus("正在加载会话列表…");
+  setStatus('正在加载会话列表…');
 
   try {
-    const result = await browser.runtime.sendMessage({ type: "REQUEST_CONVERSATION_LIST" }) as {
+    const result = await browser.runtime.sendMessage({ type: 'REQUEST_CONVERSATION_LIST' }) as {
       ok: boolean;
       error?: string;
       conversations?: ConversationItem[];
     };
 
     if (!result?.ok) {
-      setStatus(result?.error ?? "加载失败。", "error");
+      setStatus(result?.error ?? '加载失败。', 'error');
       return;
     }
 
     state.conversations = result.conversations ?? [];
 
     if (state.conversations.length === 0) {
-      setStatus("没有可导出的会话。", "warning");
-    } else {
-      setStatus(`会话列表已加载，共 ${state.conversations.length} 条。`, "success");
+      setStatus('没有可导出的会话。', 'warning');
     }
-  } catch (error) {
-    setStatus(`加载失败：${error instanceof Error ? error.message : String(error)}`, "error");
-  } finally {
+    else {
+      setStatus(`会话列表已加载，共 ${state.conversations.length} 条。`, 'success');
+    }
+  }
+  catch (error) {
+    setStatus(`加载失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
+  finally {
     state.isLoading = false;
     updateControls();
     render();
@@ -113,7 +121,7 @@ async function exportSelected(): Promise<void> {
   const selectedIds = getSelectedIds();
 
   if (selectedIds.length === 0) {
-    setStatus("请先至少选择一个会话。", "warning");
+    setStatus('请先至少选择一个会话。', 'warning');
     return;
   }
 
@@ -123,37 +131,40 @@ async function exportSelected(): Promise<void> {
 
   try {
     const result = await browser.runtime.sendMessage({
-      type: "REQUEST_EXPORT_CONVERSATIONS",
+      type: 'REQUEST_EXPORT_CONVERSATIONS',
       chatIds: selectedIds,
       includeFrontmatter: frontmatterInput.checked,
       includeTimestamps: timestampsInput.checked,
-      timestamp24h: timestamp24hInput.checked
+      timestamp24h: timestamp24hInput.checked,
     }) as { ok: boolean; error?: string };
 
     if (result?.ok) {
-      setStatus(`已导出 ${selectedIds.length} 个会话。`, "success");
-    } else {
-      setStatus(result?.error ?? "导出失败。", "error");
+      setStatus(`已导出 ${selectedIds.length} 个会话。`, 'success');
     }
-  } catch (error) {
-    setStatus(`导出失败：${error instanceof Error ? error.message : String(error)}`, "error");
-  } finally {
+    else {
+      setStatus(result?.error ?? '导出失败。', 'error');
+    }
+  }
+  catch (error) {
+    setStatus(`导出失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
+  finally {
     state.isBusy = false;
     updateControls();
   }
 }
 
 function setAllSelections(checked: boolean): void {
-  for (const checkbox of listEl.querySelectorAll<HTMLInputElement>("input[type='checkbox']")) {
+  for (const checkbox of listEl.querySelectorAll<HTMLInputElement>('input[type=\'checkbox\']')) {
     checkbox.checked = checked;
   }
 }
 
 function getSelectedIds(): string[] {
   return Array.from(
-    listEl.querySelectorAll<HTMLInputElement>("input[type='checkbox']:checked")
+    listEl.querySelectorAll<HTMLInputElement>('input[type=\'checkbox\']:checked'),
   )
-    .map((cb) => cb.dataset.chatId)
+    .map(cb => cb.dataset.chatId)
     .filter((v): v is string => Boolean(v));
 }
 
@@ -161,7 +172,7 @@ function render(): void {
   listEl.replaceChildren();
 
   if (state.isLoading && state.conversations.length === 0) {
-    listEl.appendChild(createPlaceholder("正在加载会话列表…"));
+    listEl.appendChild(createPlaceholder('正在加载会话列表…'));
     return;
   }
 
@@ -173,22 +184,22 @@ function render(): void {
   const fragment = document.createDocumentFragment();
 
   for (const conversation of state.conversations) {
-    const row = document.createElement("label");
-    row.className = "conversation-row";
+    const row = document.createElement('label');
+    row.className = 'conversation-row';
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
     checkbox.dataset.chatId = conversation.id;
 
-    const textWrap = document.createElement("span");
-    textWrap.className = "conversation-text";
+    const textWrap = document.createElement('span');
+    textWrap.className = 'conversation-text';
 
-    const title = document.createElement("span");
-    title.className = "conversation-title";
+    const title = document.createElement('span');
+    title.className = 'conversation-title';
     title.textContent = conversation.title || conversation.id;
 
-    const meta = document.createElement("span");
-    meta.className = "conversation-meta";
+    const meta = document.createElement('span');
+    meta.className = 'conversation-meta';
     meta.textContent = formatDate(conversation.update_time ?? conversation.create_time);
 
     textWrap.append(title, meta);
@@ -208,13 +219,13 @@ function updateControls(): void {
   exportBtn.disabled = disabled || state.conversations.length === 0;
 }
 
-function setStatus(text: string, tone: "muted" | "success" | "warning" | "error" = "muted"): void {
+function setStatus(text: string, tone: 'muted' | 'success' | 'warning' | 'error' = 'muted'): void {
   statusEl.textContent = text;
   statusEl.dataset.tone = tone;
 }
 
 function showError(text: string): void {
-  const root = document.querySelector(".root");
+  const root = document.querySelector('.root');
 
   if (!root) {
     return;
@@ -224,22 +235,22 @@ function showError(text: string): void {
 }
 
 function createPlaceholder(text: string): HTMLDivElement {
-  const div = document.createElement("div");
-  div.className = "placeholder";
+  const div = document.createElement('div');
+  div.className = 'placeholder';
   div.textContent = text;
   return div;
 }
 
 function formatDate(timestamp?: number): string {
   if (!timestamp) {
-    return "无时间信息";
+    return '无时间信息';
   }
 
-  return new Date(timestamp * 1000).toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
+  return new Date(timestamp * 1000).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 

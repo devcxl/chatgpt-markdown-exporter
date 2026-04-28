@@ -1,22 +1,22 @@
-import browser from "webextension-polyfill";
-import { fetchAllConversations, fetchConversation, getCurrentChatId } from "./api";
-import { processConversation } from "./process-conversation";
-import type { ApiConversationItem } from "./types";
-import { conversationToMarkdown, type MarkdownOptions } from "../markdown/conversation-to-markdown";
+import browser from 'webextension-polyfill';
+import { fetchAllConversations, fetchConversation, getCurrentChatId } from './api';
+import { processConversation } from './process-conversation';
+import type { ApiConversationItem } from './types';
+import { conversationToMarkdown, type MarkdownOptions } from '../markdown/conversation-to-markdown';
 import {
   buildCurrentMarkdownFilename,
   buildMarkdownFilename,
-  buildZipFilename
-} from "../shared/files";
-import type { RuntimeResponse } from "../shared/messages";
+  buildZipFilename,
+} from '../shared/files';
+import type { RuntimeResponse } from '../shared/messages';
 
-const HOST_ID = "cgpt-exporter-host";
-const CURRENT_EXPORT_BUTTON_ID = "cgpt-export-current-button";
-const HEADER_ACTIONS_SELECTOR = "#conversation-header-actions";
+const HOST_ID = 'cgpt-exporter-host';
+const CURRENT_EXPORT_BUTTON_ID = 'cgpt-export-current-button';
+const HEADER_ACTIONS_SELECTOR = '#conversation-header-actions';
 const MAX_CONVERSATIONS = 100;
 let panelController: PanelController | null = null;
 
-type StatusTone = "muted" | "success" | "warning" | "error";
+type StatusTone = 'muted' | 'success' | 'warning' | 'error';
 
 type PanelController = {
   toggle(): void;
@@ -60,32 +60,32 @@ export function mountExportPanel(): PanelController {
       },
       close() {
         // 防止重复注入后的重复控制器干扰
-      }
+      },
     };
   }
 
-  const host = document.createElement("div");
+  const host = document.createElement('div');
   host.id = HOST_ID;
-  host.style.position = "fixed";
-  host.style.right = "20px";
-  host.style.bottom = "20px";
-  host.style.zIndex = "2147483647";
+  host.style.position = 'fixed';
+  host.style.right = '20px';
+  host.style.bottom = '20px';
+  host.style.zIndex = '2147483647';
 
   const currentExportButton = createCurrentExportButton();
   mountCurrentExportButton(currentExportButton);
   observeHeaderActions(currentExportButton);
 
-  const shadow = host.attachShadow({ mode: "closed" });
-  const style = document.createElement("style");
+  const shadow = host.attachShadow({ mode: 'closed' });
+  const style = document.createElement('style');
   style.textContent = PANEL_STYLE;
   shadow.appendChild(style);
 
-  const root = document.createElement("div");
-  root.className = "root";
+  const root = document.createElement('div');
+  root.className = 'root';
   shadow.appendChild(root);
 
-  const panel = document.createElement("div");
-  panel.className = "panel hidden";
+  const panel = document.createElement('div');
+  panel.className = 'panel hidden';
   panel.innerHTML = `
     <div class="panel-header">
       <div>
@@ -125,15 +125,15 @@ export function mountExportPanel(): PanelController {
     conversations: [],
     currentExportButton,
     panel,
-    statusEl: queryRequired<HTMLParagraphElement>(panel, "[data-role='status']"),
-    conversationListEl: queryRequired<HTMLDivElement>(panel, "[data-role='conversation-list']"),
-    refreshButton: queryRequired<HTMLButtonElement>(panel, "[data-role='refresh']"),
-    selectAllButton: queryRequired<HTMLButtonElement>(panel, "[data-role='select-all']"),
-    clearSelectionButton: queryRequired<HTMLButtonElement>(panel, "[data-role='clear-selection']"),
-    exportSelectedButton: queryRequired<HTMLButtonElement>(panel, "[data-role='export-selected']"),
-    frontmatterInput: queryRequired<HTMLInputElement>(panel, "[data-role='frontmatter']"),
-    timestampsInput: queryRequired<HTMLInputElement>(panel, "[data-role='timestamps']"),
-    timestamp24hInput: queryRequired<HTMLInputElement>(panel, "[data-role='timestamp24h']")
+    statusEl: queryRequired<HTMLParagraphElement>(panel, '[data-role=\'status\']'),
+    conversationListEl: queryRequired<HTMLDivElement>(panel, '[data-role=\'conversation-list\']'),
+    refreshButton: queryRequired<HTMLButtonElement>(panel, '[data-role=\'refresh\']'),
+    selectAllButton: queryRequired<HTMLButtonElement>(panel, '[data-role=\'select-all\']'),
+    clearSelectionButton: queryRequired<HTMLButtonElement>(panel, '[data-role=\'clear-selection\']'),
+    exportSelectedButton: queryRequired<HTMLButtonElement>(panel, '[data-role=\'export-selected\']'),
+    frontmatterInput: queryRequired<HTMLInputElement>(panel, '[data-role=\'frontmatter\']'),
+    timestampsInput: queryRequired<HTMLInputElement>(panel, '[data-role=\'timestamps\']'),
+    timestamp24hInput: queryRequired<HTMLInputElement>(panel, '[data-role=\'timestamp24h\']'),
   };
 
   const controller: PanelController = {
@@ -150,7 +150,7 @@ export function mountExportPanel(): PanelController {
     },
     close() {
       closePanel(state);
-    }
+    },
   };
 
   panelController = controller;
@@ -158,7 +158,7 @@ export function mountExportPanel(): PanelController {
   addTrustedClickListener(currentExportButton, () => {
     void exportCurrentConversation(state);
   });
-  addTrustedClickListener(queryRequired<HTMLButtonElement>(panel, "[data-role='close']"), () => controller.close());
+  addTrustedClickListener(queryRequired<HTMLButtonElement>(panel, '[data-role=\'close\']'), () => controller.close());
   addTrustedClickListener(state.refreshButton, () => {
     void loadConversationList(state, true);
   });
@@ -179,7 +179,7 @@ export function mountExportPanel(): PanelController {
 
 async function openPanel(state: PanelState): Promise<void> {
   state.isOpen = true;
-  state.panel.classList.remove("hidden");
+  state.panel.classList.remove('hidden');
 
   if (!state.hasLoadedList && !state.isLoadingList) {
     await loadConversationList(state, false);
@@ -188,12 +188,12 @@ async function openPanel(state: PanelState): Promise<void> {
 
 function closePanel(state: PanelState): void {
   state.isOpen = false;
-  state.panel.classList.add("hidden");
+  state.panel.classList.add('hidden');
 }
 
 async function exportCurrentConversation(state: PanelState): Promise<void> {
   await withBusy(state, async () => {
-    setStatus(state, "正在导出当前会话…");
+    setStatus(state, '正在导出当前会话…');
 
     const chatId = getCurrentChatId();
     const rawConversation = await fetchConversation(chatId);
@@ -202,29 +202,29 @@ async function exportCurrentConversation(state: PanelState): Promise<void> {
       conversation,
       getMarkdownOptions(state),
       {
-        sourceUrl: chatId.startsWith("__share__")
+        sourceUrl: chatId.startsWith('__share__')
           ? location.href
-          : `${location.origin}/c/${conversation.id}`
-      }
+          : `${location.origin}/c/${conversation.id}`,
+      },
     );
 
     const response = await browser.runtime.sendMessage({
-      type: "DOWNLOAD_MARKDOWN",
+      type: 'DOWNLOAD_MARKDOWN',
       file: {
         filename: buildCurrentMarkdownFilename(
           getCurrentConversationTitle(conversation.title),
-          conversation.id
+          conversation.id,
         ),
-        content: markdown
+        content: markdown,
       },
-      saveAs: true
+      saveAs: true,
     }) as RuntimeResponse;
 
     if (!response?.ok) {
-      throw new Error(response?.error ?? "下载失败。");
+      throw new Error(response?.error ?? '下载失败。');
     }
 
-    setStatus(state, "当前会话已导出。", "success");
+    setStatus(state, '当前会话已导出。', 'success');
   });
 }
 
@@ -259,13 +259,16 @@ async function loadConversationList(state: PanelState, forceReload: boolean): Pr
     renderConversationList(state);
 
     if (conversations.length === 0) {
-      setStatus(state, "没有可导出的会话。", "warning");
-    } else {
-      setStatus(state, `会话列表已加载，共 ${conversations.length} 条。`, "success");
+      setStatus(state, '没有可导出的会话。', 'warning');
     }
-  } catch (error) {
-    setStatus(state, formatError(error), "error");
-  } finally {
+    else {
+      setStatus(state, `会话列表已加载，共 ${conversations.length} 条。`, 'success');
+    }
+  }
+  catch (error) {
+    setStatus(state, formatError(error), 'error');
+  }
+  finally {
     state.isLoadingList = false;
     updateControls(state);
     renderConversationList(state);
@@ -277,7 +280,7 @@ async function exportSelectedConversations(state: PanelState): Promise<void> {
     const selectedIds = getSelectedConversationIds(state);
 
     if (selectedIds.length === 0) {
-      throw new Error("请先至少选择一个会话。");
+      throw new Error('请先至少选择一个会话。');
     }
 
     const files: Array<{ filename: string; content: string }> = [];
@@ -293,15 +296,16 @@ async function exportSelectedConversations(state: PanelState): Promise<void> {
           conversation,
           getMarkdownOptions(state),
           {
-            sourceUrl: `${location.origin}/c/${conversation.id}`
-          }
+            sourceUrl: `${location.origin}/c/${conversation.id}`,
+          },
         );
 
         files.push({
           filename: buildMarkdownFilename(conversation.title, conversation.id),
-          content: markdown
+          content: markdown,
         });
-      } catch (error) {
+      }
+      catch (error) {
         failed.push(`${chatId}: ${formatError(error)}`);
       }
 
@@ -309,31 +313,31 @@ async function exportSelectedConversations(state: PanelState): Promise<void> {
     }
 
     if (files.length === 0) {
-      throw new Error(failed[0] ?? "批量导出失败。");
+      throw new Error(failed[0] ?? '批量导出失败。');
     }
 
     const response = await browser.runtime.sendMessage({
-      type: "DOWNLOAD_ZIP",
+      type: 'DOWNLOAD_ZIP',
       filename: buildZipFilename(),
       files,
-      saveAs: true
+      saveAs: true,
     }) as RuntimeResponse;
 
     if (!response?.ok) {
-      throw new Error(response?.error ?? "ZIP 下载失败。");
+      throw new Error(response?.error ?? 'ZIP 下载失败。');
     }
 
     if (failed.length > 0) {
-      console.error("部分会话导出失败", failed);
+      console.error('部分会话导出失败', failed);
       setStatus(
         state,
         `已导出 ${files.length} 个会话，失败 ${failed.length} 个。失败详情已输出到控制台。`,
-        "warning"
+        'warning',
       );
       return;
     }
 
-    setStatus(state, `已导出 ${files.length} 个会话。`, "success");
+    setStatus(state, `已导出 ${files.length} 个会话。`, 'success');
   });
 }
 
@@ -347,9 +351,11 @@ async function withBusy(state: PanelState, action: () => Promise<void>): Promise
 
   try {
     await action();
-  } catch (error) {
-    setStatus(state, formatError(error), "error");
-  } finally {
+  }
+  catch (error) {
+    setStatus(state, formatError(error), 'error');
+  }
+  finally {
     state.isBusy = false;
     updateControls(state);
   }
@@ -359,34 +365,34 @@ function renderConversationList(state: PanelState): void {
   state.conversationListEl.replaceChildren();
 
   if (state.isLoadingList && state.conversations.length === 0) {
-    state.conversationListEl.appendChild(createPlaceholder("正在加载会话列表…"));
+    state.conversationListEl.appendChild(createPlaceholder('正在加载会话列表…'));
     return;
   }
 
   if (state.conversations.length === 0) {
-    state.conversationListEl.appendChild(createPlaceholder("点击“加载 / 刷新”后显示会话列表。"));
+    state.conversationListEl.appendChild(createPlaceholder('点击“加载 / 刷新”后显示会话列表。'));
     return;
   }
 
   const fragment = document.createDocumentFragment();
 
   for (const conversation of state.conversations) {
-    const row = document.createElement("label");
-    row.className = "conversation-row";
+    const row = document.createElement('label');
+    row.className = 'conversation-row';
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
     checkbox.dataset.chatId = conversation.id;
 
-    const textWrap = document.createElement("span");
-    textWrap.className = "conversation-text";
+    const textWrap = document.createElement('span');
+    textWrap.className = 'conversation-text';
 
-    const title = document.createElement("span");
-    title.className = "conversation-title";
+    const title = document.createElement('span');
+    title.className = 'conversation-title';
     title.textContent = conversation.title || conversation.id;
 
-    const meta = document.createElement("span");
-    meta.className = "conversation-meta";
+    const meta = document.createElement('span');
+    meta.className = 'conversation-meta';
     meta.textContent = formatConversationDate(conversation.update_time ?? conversation.create_time);
 
     textWrap.append(title, meta);
@@ -398,16 +404,16 @@ function renderConversationList(state: PanelState): void {
 }
 
 function setAllSelections(state: PanelState, checked: boolean): void {
-  for (const checkbox of state.conversationListEl.querySelectorAll<HTMLInputElement>("input[type='checkbox']")) {
+  for (const checkbox of state.conversationListEl.querySelectorAll<HTMLInputElement>('input[type=\'checkbox\']')) {
     checkbox.checked = checked;
   }
 }
 
 function getSelectedConversationIds(state: PanelState): string[] {
   return Array.from(
-    state.conversationListEl.querySelectorAll<HTMLInputElement>("input[type='checkbox']:checked")
+    state.conversationListEl.querySelectorAll<HTMLInputElement>('input[type=\'checkbox\']:checked'),
   )
-    .map((checkbox) => checkbox.dataset.chatId)
+    .map(checkbox => checkbox.dataset.chatId)
     .filter((value): value is string => Boolean(value));
 }
 
@@ -415,11 +421,11 @@ function getMarkdownOptions(state: PanelState): MarkdownOptions {
   return {
     includeFrontmatter: state.frontmatterInput.checked,
     includeTimestamps: state.timestampsInput.checked,
-    timestamp24h: state.timestamp24hInput.checked
+    timestamp24h: state.timestamp24hInput.checked,
   };
 }
 
-function setStatus(state: PanelState, text: string, tone: StatusTone = "muted"): void {
+function setStatus(state: PanelState, text: string, tone: StatusTone = 'muted'): void {
   state.statusEl.textContent = text;
   state.statusEl.dataset.tone = tone;
 }
@@ -435,11 +441,11 @@ function updateControls(state: PanelState): void {
 }
 
 function createCurrentExportButton(): HTMLButtonElement {
-  const button = document.createElement("button");
+  const button = document.createElement('button');
   button.id = CURRENT_EXPORT_BUTTON_ID;
-  button.type = "button";
-  button.className = "btn relative group-focus-within/dialog:focus-visible:[outline-width:1.5px] group-focus-within/dialog:focus-visible:[outline-offset:2.5px] group-focus-within/dialog:focus-visible:[outline-style:solid] group-focus-within/dialog:focus-visible:[outline-color:var(--text-primary)] btn-ghost text-token-text-primary hover:bg-token-surface-hover keyboard-focused:bg-token-surface-hover rounded-lg max-sm:hidden";
-  button.setAttribute("aria-label", "导出当前会话 Markdown");
+  button.type = 'button';
+  button.className = 'btn relative group-focus-within/dialog:focus-visible:[outline-width:1.5px] group-focus-within/dialog:focus-visible:[outline-offset:2.5px] group-focus-within/dialog:focus-visible:[outline-style:solid] group-focus-within/dialog:focus-visible:[outline-color:var(--text-primary)] btn-ghost text-token-text-primary hover:bg-token-surface-hover keyboard-focused:bg-token-surface-hover rounded-lg max-sm:hidden';
+  button.setAttribute('aria-label', '导出当前会话 Markdown');
   button.innerHTML = `
     <div class="flex w-full items-center justify-center gap-1.5">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" aria-label="" class="-ms-0.5 icon" viewBox="0 0 20 20" fill="none">
@@ -470,7 +476,7 @@ function observeHeaderActions(button: HTMLButtonElement): void {
 
   observer.observe(document.documentElement, {
     childList: true,
-    subtree: true
+    subtree: true,
   });
 
   window.setTimeout(() => {
@@ -490,9 +496,9 @@ function queryRequired<T extends Element>(root: ParentNode, selector: string): T
 
 function addTrustedClickListener(
   element: HTMLButtonElement,
-  handler: () => void
+  handler: () => void,
 ): void {
-  element.addEventListener("click", (event) => {
+  element.addEventListener('click', (event) => {
     if (!event.isTrusted) {
       return;
     }
@@ -502,22 +508,22 @@ function addTrustedClickListener(
 }
 
 function createPlaceholder(text: string): HTMLDivElement {
-  const placeholder = document.createElement("div");
-  placeholder.className = "placeholder";
+  const placeholder = document.createElement('div');
+  placeholder.className = 'placeholder';
   placeholder.textContent = text;
   return placeholder;
 }
 
 function formatConversationDate(timestamp?: number): string {
   if (!timestamp) {
-    return "无时间信息";
+    return '无时间信息';
   }
 
-  return new Date(timestamp * 1000).toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
+  return new Date(timestamp * 1000).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -531,18 +537,18 @@ function formatError(error: unknown): string {
 
 function getCurrentConversationTitle(fallbackTitle: string): string {
   const title = document.title
-    .replace(/\s*[-|·]\s*ChatGPT\s*$/i, "")
+    .replace(/\s*[-|·]\s*ChatGPT\s*$/i, '')
     .trim();
 
   if (title && !/^chatgpt$/i.test(title)) {
     return title;
   }
 
-  return fallbackTitle.trim() || "ChatGPT Conversation";
+  return fallbackTitle.trim() || 'ChatGPT Conversation';
 }
 
 function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
+  return new Promise(resolve => window.setTimeout(resolve, ms));
 }
 
 const PANEL_STYLE = `

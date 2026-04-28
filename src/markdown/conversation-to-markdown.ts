@@ -4,8 +4,8 @@ import type {
   Citation,
   ContentReference,
   ConversationNodeMessage,
-  ConversationResult
-} from "../content/types";
+  ConversationResult,
+} from '../content/types';
 
 export type MarkdownOptions = {
   includeFrontmatter: boolean;
@@ -21,14 +21,14 @@ export type MarkdownMetadata = {
 export function conversationToMarkdown(
   conversation: ConversationResult,
   options: MarkdownOptions,
-  metadata: MarkdownMetadata = {}
+  metadata: MarkdownMetadata = {},
 ): string {
   const source = metadata.sourceUrl ?? `${location.origin}/c/${conversation.id}`;
   const exportedAt = metadata.exportedAt ?? new Date().toISOString();
 
   const frontmatter = options.includeFrontmatter
     ? [
-        "---",
+        '---',
         `title: ${yamlString(conversation.title)}`,
         `source: ${yamlString(source)}`,
         `model: ${yamlString(conversation.model)}`,
@@ -36,11 +36,11 @@ export function conversationToMarkdown(
         `create_time: ${yamlString(toIso(conversation.createTime))}`,
         `update_time: ${yamlString(toIso(conversation.updateTime))}`,
         `exported_at: ${yamlString(exportedAt)}`,
-        "author: ChatGPT",
-        "---",
-        ""
-      ].join("\n")
-    : "";
+        'author: ChatGPT',
+        '---',
+        '',
+      ].join('\n')
+    : '';
 
   const content = conversation.conversationNodes
     .map((node) => {
@@ -59,10 +59,10 @@ export function conversationToMarkdown(
       return renderMessageBlock(author, timestamp, body.trim());
     })
     .filter(Boolean)
-    .join("\n\n");
+    .join('\n\n');
 
   return normalizeLineBreaks(
-    `${frontmatter}# ${conversation.title}\n\n${content}\n`
+    `${frontmatter}# ${conversation.title}\n\n${content}\n`,
   );
 }
 
@@ -70,30 +70,30 @@ function shouldSkipMessage(message: ConversationNodeMessage): boolean {
   const contentType = message.content.content_type;
 
   if (message.metadata?.is_visually_hidden_from_conversation) return true;
-  if (contentType === "thoughts") return true;
-  if (contentType === "reasoning_recap") return true;
+  if (contentType === 'thoughts') return true;
+  if (contentType === 'reasoning_recap') return true;
 
-  if (message.recipient !== "all") {
+  if (message.recipient !== 'all') {
     return true;
   }
 
-  if (message.author.role === "tool") {
-    return contentType !== "multimodal_text"
-      && !(contentType === "execution_output"
-        && message.metadata?.aggregate_result?.messages?.some((x) => x.message_type === "image"));
+  if (message.author.role === 'tool') {
+    return contentType !== 'multimodal_text'
+      && !(contentType === 'execution_output'
+        && message.metadata?.aggregate_result?.messages?.some(x => x.message_type === 'image'));
   }
 
   return false;
 }
 
-function transformAuthor(author: ConversationNodeMessage["author"]): string {
+function transformAuthor(author: ConversationNodeMessage['author']): string {
   switch (author.role) {
-    case "assistant":
-      return "ChatGPT";
-    case "user":
-      return "用户";
-    case "tool":
-      return `插件${author.name ? ` (${author.name})` : ""}`;
+    case 'assistant':
+      return 'ChatGPT';
+    case 'user':
+      return '用户';
+    case 'tool':
+      return `插件${author.name ? ` (${author.name})` : ''}`;
     default:
       return author.role;
   }
@@ -101,27 +101,27 @@ function transformAuthor(author: ConversationNodeMessage["author"]): string {
 
 function renderMessageBlock(author: string, timestamp: string, body: string): string {
   return [
-    "---",
+    '---',
     `## ${author}`,
-    timestamp ? `> ${timestamp}` : "",
-    body
+    timestamp ? `> ${timestamp}` : '',
+    body,
   ]
     .filter(Boolean)
-    .join("\n\n");
+    .join('\n\n');
 }
 
 function buildTimestamp(
   message: ConversationNodeMessage,
-  options: MarkdownOptions
+  options: MarkdownOptions,
 ): string {
-  if (!options.includeTimestamps || !message.create_time) return "";
+  if (!options.includeTimestamps || !message.create_time) return '';
 
   const date = new Date(message.create_time * 1000);
 
-  return date.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: !options.timestamp24h
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: !options.timestamp24h,
   });
 }
 
@@ -131,7 +131,7 @@ function transformContent(message: ConversationNodeMessage): string {
   const postProcess = (input: string) => {
     let output = input;
 
-    if (message.author.role === "assistant") {
+    if (message.author.role === 'assistant') {
       output = transformContentReferences(output, metadata?.content_references);
       output = transformFootnotes(output, metadata?.citations);
       output = normalizeMath(output);
@@ -141,70 +141,70 @@ function transformContent(message: ConversationNodeMessage): string {
   };
 
   switch (content.content_type) {
-    case "text": {
+    case 'text': {
       const parts = (content as { parts: string[] }).parts;
-      return postProcess(parts?.join("\n") ?? "");
+      return postProcess(parts?.join('\n') ?? '');
     }
 
-    case "code":
+    case 'code':
       return [
-        "Code:",
-        "```",
-        content.text ?? "",
-        "```"
-      ].join("\n");
+        'Code:',
+        '```',
+        content.text ?? '',
+        '```',
+      ].join('\n');
 
-    case "execution_output": {
+    case 'execution_output': {
       const images = metadata?.aggregate_result?.messages
-        ?.filter((x) => x.message_type === "image")
-        ?.map((x) => `![image](${x.image_url})`)
-        ?.join("\n");
+        ?.filter(x => x.message_type === 'image')
+        ?.map(x => `![image](${x.image_url})`)
+        ?.join('\n');
 
       if (images) return images;
 
       return postProcess([
-        "Result:",
-        "```",
-        content.text ?? "",
-        "```"
-      ].join("\n"));
+        'Result:',
+        '```',
+        content.text ?? '',
+        '```',
+      ].join('\n'));
     }
 
-    case "tether_quote":
-      return postProcess(`> ${content.title || content.text || ""}`);
+    case 'tether_quote':
+      return postProcess(`> ${content.title || content.text || ''}`);
 
-    case "tether_browsing_display": {
+    case 'tether_browsing_display': {
       const list = metadata?._cite_metadata?.metadata_list;
 
       if (Array.isArray(list) && list.length > 0) {
         return postProcess(
-          list.map(({ title, url }) => `> [${title}](${url})`).join("\n")
+          list.map(({ title, url }) => `> [${title}](${url})`).join('\n'),
         );
       }
 
-      return "";
+      return '';
     }
 
-    case "multimodal_text": {
+    case 'multimodal_text': {
       const parts = (content as { parts: Array<string | unknown> }).parts;
       return parts
         ?.map((part) => {
-          if (typeof part === "string") return postProcess(part);
+          if (typeof part === 'string') return postProcess(part);
 
           const partObj = part as { content_type: string; asset_pointer?: string; text?: string };
 
-          if (partObj.content_type === "image_asset_pointer") {
+          if (partObj.content_type === 'image_asset_pointer') {
             return `![image](${partObj.asset_pointer})`;
           }
 
-          if (partObj.content_type === "audio_transcription") {
+          if (partObj.content_type === 'audio_transcription') {
             return `[audio] ${partObj.text}`;
           }
 
           return `[Unsupported multimodal content: ${partObj.content_type}]`;
         })
         .filter(Boolean)
-        .join("\n") ?? "";
+        .join('\n') ?? '';
     }
 
     default:
@@ -214,14 +214,14 @@ function transformContent(message: ConversationNodeMessage): string {
 
 function transformContentReferences(
   input: string,
-  refs?: ContentReference[]
+  refs?: ContentReference[],
 ): string {
   if (!refs?.length) return input;
 
   let output = normalizeUnicode(input);
 
   const sortedRefs = [...refs].sort(
-    (a, b) => (b.matched_text?.length ?? 0) - (a.matched_text?.length ?? 0)
+    (a, b) => (b.matched_text?.length ?? 0) - (a.matched_text?.length ?? 0),
   );
 
   for (const ref of sortedRefs) {
@@ -229,33 +229,33 @@ function transformContentReferences(
 
     const matchedText = normalizeUnicode(ref.matched_text);
 
-    if (ref.type === "grouped_webpages") {
+    if (ref.type === 'grouped_webpages') {
       const item = ref.items?.[0];
 
       if (!item) {
-        output = output.replaceAll(matchedText, ref.alt ?? "");
+        output = output.replaceAll(matchedText, ref.alt ?? '');
         continue;
       }
 
       const links: string[] = [
-        `[${escapeMarkdownInline(item.attribution || item.title)}](${item.url})`
+        `[${escapeMarkdownInline(item.attribution || item.title)}](${item.url})`,
       ];
 
       for (const supporting of item.supporting_websites ?? []) {
         links.push(
-          `[${escapeMarkdownInline(supporting.attribution || supporting.title)}](${supporting.url})`
+          `[${escapeMarkdownInline(supporting.attribution || supporting.title)}](${supporting.url})`,
         );
       }
 
-      output = output.replaceAll(matchedText, `(${links.join(", ")})`);
+      output = output.replaceAll(matchedText, `(${links.join(', ')})`);
       continue;
     }
 
-    if (ref.type === "sources_footnote") {
+    if (ref.type === 'sources_footnote') {
       continue;
     }
 
-    output = output.replaceAll(matchedText, ref.alt ?? "");
+    output = output.replaceAll(matchedText, ref.alt ?? '');
   }
 
   return output;
@@ -263,7 +263,7 @@ function transformContentReferences(
 
 function transformFootnotes(
   input: string,
-  citations?: Citation[]
+  citations?: Citation[],
 ): string {
   if (!citations?.length) return input;
 
@@ -273,19 +273,19 @@ function transformFootnotes(
   const output = input.replace(footNoteMarkRegex, (match, citeIndexRaw) => {
     const citeIndex = Number(citeIndexRaw);
     const citation = citations.find(
-      (x) => x.metadata?.extra?.cited_message_idx === citeIndex
+      x => x.metadata?.extra?.cited_message_idx === citeIndex,
     );
 
     if (!citation) return match;
 
-    const title = citation.metadata?.title ?? "No title";
+    const title = citation.metadata?.title ?? 'No title';
     const url = citation.metadata?.url;
 
     used.set(
       citeIndex,
       url
         ? `[^${citeIndex}]: [${escapeMarkdownInline(title)}](${url})`
-        : `[^${citeIndex}]: ${title}`
+        : `[^${citeIndex}]: ${title}`,
     );
 
     return `[^${citeIndex}]`;
@@ -293,37 +293,37 @@ function transformFootnotes(
 
   if (used.size === 0) return output;
 
-  return `${output}\n\n${Array.from(used.values()).join("\n")}`;
+  return `${output}\n\n${Array.from(used.values()).join('\n')}`;
 }
 
 function normalizeMath(input: string): string {
   return input
-    .replace(/^\\\[(.+)\\\]$/gm, "$$$$ $1 $$$$")
-    .replace(/\\\[/g, "$")
-    .replace(/\\\]/g, "$")
-    .replace(/\\\(/g, "$")
-    .replace(/\\\)/g, "$");
+    .replace(/^\\\[(.+)\\\]$/gm, '$$$$ $1 $$$$')
+    .replace(/\\\[/g, '$')
+    .replace(/\\\]/g, '$')
+    .replace(/\\\(/g, '$')
+    .replace(/\\\)/g, '$');
 }
 
 function yamlString(input: string): string {
-  return JSON.stringify(input ?? "");
+  return JSON.stringify(input ?? '');
 }
 
 function toIso(unixSeconds?: number): string {
-  if (!unixSeconds) return "";
+  if (!unixSeconds) return '';
   return new Date(unixSeconds * 1000).toISOString();
 }
 
 function normalizeLineBreaks(input: string): string {
-  return input.replace(/\r\n/g, "\n").replace(/\n{4,}/g, "\n\n\n");
+  return input.replace(/\r\n/g, '\n').replace(/\n{4,}/g, '\n\n\n');
 }
 
 function normalizeUnicode(input: string): string {
   return input
-    .replaceAll(/[   ⁠]/gu, " ")
-    .replaceAll(/[‐-―−]/gu, "-");
+    .replaceAll(/[   ⁠]/gu, ' ')
+    .replaceAll(/[‐-―−]/gu, '-');
 }
 
 function escapeMarkdownInline(input: string): string {
-  return input.replace(/([\[\]])/g, "\\$1");
+  return input.replace(/([\[\]])/g, '\\$1');
 }
