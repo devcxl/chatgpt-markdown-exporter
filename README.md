@@ -1,5 +1,9 @@
 # ChatGPT Markdown Exporter
 
+<img src="public/icons/icon-128.png" width="128" height="128" />
+
+> English: [README.en.md](./README.en.md)
+
 [![CI](https://github.com/devcxl/chatgpt-markdown-exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/devcxl/chatgpt-markdown-exporter/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/github/package-json/v/devcxl/chatgpt-markdown-exporter)](https://github.com/devcxl/chatgpt-markdown-exporter/releases)
 [![License](https://img.shields.io/github/license/devcxl/chatgpt-markdown-exporter)](./LICENSE)
