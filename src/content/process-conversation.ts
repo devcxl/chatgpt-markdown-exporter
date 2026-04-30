@@ -1,5 +1,4 @@
-// src/content/process-conversation.ts
-
+import { t } from '../i18n';
 import type {
   ApiConversation,
   ConversationNode,
@@ -23,7 +22,7 @@ const MODEL_MAPPING: Record<string, string> = {
 export function processConversation(
   conversation: ApiConversation & { id: string },
 ): ConversationResult {
-  const title = conversation.title || 'ChatGPT Conversation';
+  const title = conversation.title || t('process.fallbackTitle');
   const createTime = conversation.create_time;
   const updateTime = conversation.update_time;
 
@@ -34,7 +33,7 @@ export function processConversation(
       || Object.values(conversation.mapping).find(node => !node.children?.length)?.id;
 
   if (!startNodeId) {
-    throw new Error('Failed to find start node.');
+    throw new Error(t('process.startNodeError'));
   }
 
   const conversationNodes = extractConversationResult(

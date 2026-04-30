@@ -1,4 +1,5 @@
 import browser from 'webextension-polyfill';
+import { t, getDateLocale } from '../i18n';
 import { fetchAllConversations, fetchConversation, getCurrentChatId } from './api';
 import { processConversation } from './process-conversation';
 import type { ApiConversationItem } from './types';
@@ -52,15 +53,9 @@ export function mountExportPanel(): PanelController {
 
   if (existingHost) {
     return {
-      toggle() {
-        // 防止重复注入后的重复控制器干扰
-      },
-      open() {
-        // 防止重复注入后的重复控制器干扰
-      },
-      close() {
-        // 防止重复注入后的重复控制器干扰
-      },
+      toggle() { /* noop */ },
+      open() { /* noop */ },
+      close() { /* noop */ },
     };
   }
 
@@ -89,29 +84,29 @@ export function mountExportPanel(): PanelController {
   panel.innerHTML = `
     <div class="panel-header">
       <div>
-        <div class="panel-title">ChatGPT Exporter</div>
-        <div class="panel-subtitle">批量导出面板</div>
+        <div class="panel-title">${t('panel.title')}</div>
+        <div class="panel-subtitle">${t('panel.subtitle')}</div>
       </div>
-      <button class="icon-button" type="button" data-role="close" aria-label="关闭">×</button>
+      <button class="icon-button" type="button" data-role="close" aria-label="${t('common.close')}">×</button>
     </div>
     <section class="section">
-      <label class="checkbox-row"><input data-role="frontmatter" type="checkbox" checked />包含 YAML frontmatter</label>
-      <label class="checkbox-row"><input data-role="timestamps" type="checkbox" />包含消息时间</label>
-      <label class="checkbox-row"><input data-role="timestamp24h" type="checkbox" checked />使用 24 小时制</label>
+      <label class="checkbox-row"><input data-role="frontmatter" type="checkbox" checked />${t('options.frontmatter')}</label>
+      <label class="checkbox-row"><input data-role="timestamps" type="checkbox" />${t('options.timestamps')}</label>
+      <label class="checkbox-row"><input data-role="timestamp24h" type="checkbox" checked />${t('options.timestamp24h')}</label>
     </section>
     <section class="section">
       <div class="section-header">
-        <span>批量导出（最近 ${MAX_CONVERSATIONS} 条）</span>
-        <button class="secondary-button small" type="button" data-role="refresh">加载 / 刷新</button>
+        <span>${t('panel.loadingList', { count: MAX_CONVERSATIONS })}</span>
+        <button class="secondary-button small" type="button" data-role="refresh">${t('common.refresh')}</button>
       </div>
       <div class="toolbar">
-        <button class="secondary-button small" type="button" data-role="select-all">全选</button>
-        <button class="secondary-button small" type="button" data-role="clear-selection">清空</button>
+        <button class="secondary-button small" type="button" data-role="select-all">${t('common.selectAll')}</button>
+        <button class="secondary-button small" type="button" data-role="clear-selection">${t('common.clearSelection')}</button>
       </div>
       <div class="conversation-list" data-role="conversation-list"></div>
-      <button class="primary-button" type="button" data-role="export-selected">导出所选为 ZIP</button>
+      <button class="primary-button" type="button" data-role="export-selected">${t('common.exportSelectedZip')}</button>
     </section>
-    <p class="status" data-role="status">点击扩展图标打开批量导出列表。</p>
+    <p class="status" data-role="status">${t('panel.openTip')}</p>
   `;
   root.appendChild(panel);
 
@@ -193,7 +188,7 @@ function closePanel(state: PanelState): void {
 
 async function exportCurrentConversation(state: PanelState): Promise<void> {
   await withBusy(state, async () => {
-    setStatus(state, '正在导出当前会话…');
+    setStatus(state, t('panel.exportingCurrent'));
 
     const chatId = getCurrentChatId();
     const rawConversation = await fetchConversation(chatId);
@@ -221,10 +216,10 @@ async function exportCurrentConversation(state: PanelState): Promise<void> {
     }) as RuntimeResponse;
 
     if (!response?.ok) {
-      throw new Error(response?.error ?? '下载失败。');
+      throw new Error(response?.error ?? t('panel.downloadFailed'));
     }
 
-    setStatus(state, '当前会话已导出。', 'success');
+    setStatus(state, t('panel.currentExported'), 'success');
   });
 }
 
@@ -242,7 +237,7 @@ async function loadConversationList(state: PanelState, forceReload: boolean): Pr
 
   updateControls(state);
   renderConversationList(state);
-  setStatus(state, `正在加载最近 ${MAX_CONVERSATIONS} 条会话…`);
+  setStatus(state, t('panel.loadingList', { count: MAX_CONVERSATIONS }));
 
   try {
     const loaded: ApiConversationItem[] = [];
@@ -251,7 +246,7 @@ async function loadConversationList(state: PanelState, forceReload: boolean): Pr
       loaded.push(...batch);
       state.conversations = [...loaded];
       renderConversationList(state);
-      setStatus(state, `已加载 ${loaded.length} 条会话…`);
+      setStatus(state, t('panel.loadingProgress', { count: loaded.length }));
     });
 
     state.conversations = conversations;
@@ -259,10 +254,10 @@ async function loadConversationList(state: PanelState, forceReload: boolean): Pr
     renderConversationList(state);
 
     if (conversations.length === 0) {
-      setStatus(state, '没有可导出的会话。', 'warning');
+      setStatus(state, t('common.noConversations'), 'warning');
     }
     else {
-      setStatus(state, `会话列表已加载，共 ${conversations.length} 条。`, 'success');
+      setStatus(state, t('panel.loadedCount', { count: conversations.length }), 'success');
     }
   }
   catch (error) {
@@ -280,14 +275,14 @@ async function exportSelectedConversations(state: PanelState): Promise<void> {
     const selectedIds = getSelectedConversationIds(state);
 
     if (selectedIds.length === 0) {
-      throw new Error('请先至少选择一个会话。');
+      throw new Error(t('popup.selectAtLeastOne'));
     }
 
     const files: Array<{ filename: string; content: string }> = [];
     const failed: string[] = [];
 
     for (const [index, chatId] of selectedIds.entries()) {
-      setStatus(state, `正在导出 ${index + 1}/${selectedIds.length}…`);
+      setStatus(state, t('panel.exportingProgress', { current: index + 1, total: selectedIds.length }));
 
       try {
         const rawConversation = await fetchConversation(chatId);
@@ -313,7 +308,7 @@ async function exportSelectedConversations(state: PanelState): Promise<void> {
     }
 
     if (files.length === 0) {
-      throw new Error(failed[0] ?? '批量导出失败。');
+      throw new Error(failed[0] ?? t('panel.batchExportFailed'));
     }
 
     const response = await browser.runtime.sendMessage({
@@ -324,20 +319,20 @@ async function exportSelectedConversations(state: PanelState): Promise<void> {
     }) as RuntimeResponse;
 
     if (!response?.ok) {
-      throw new Error(response?.error ?? 'ZIP 下载失败。');
+      throw new Error(response?.error ?? t('panel.zipDownloadFailed'));
     }
 
     if (failed.length > 0) {
       console.error('部分会话导出失败', failed);
       setStatus(
         state,
-        `已导出 ${files.length} 个会话，失败 ${failed.length} 个。失败详情已输出到控制台。`,
+        t('panel.exportedPartial', { success: files.length, failed: failed.length }),
         'warning',
       );
       return;
     }
 
-    setStatus(state, `已导出 ${files.length} 个会话。`, 'success');
+    setStatus(state, t('panel.exportedCount', { count: files.length }), 'success');
   });
 }
 
@@ -365,12 +360,12 @@ function renderConversationList(state: PanelState): void {
   state.conversationListEl.replaceChildren();
 
   if (state.isLoadingList && state.conversations.length === 0) {
-    state.conversationListEl.appendChild(createPlaceholder('正在加载会话列表…'));
+    state.conversationListEl.appendChild(createPlaceholder(t('popup.loadingList')));
     return;
   }
 
   if (state.conversations.length === 0) {
-    state.conversationListEl.appendChild(createPlaceholder('点击“加载 / 刷新”后显示会话列表。'));
+    state.conversationListEl.appendChild(createPlaceholder(t('panel.clickToLoadTip')));
     return;
   }
 
@@ -445,13 +440,13 @@ function createCurrentExportButton(): HTMLButtonElement {
   button.id = CURRENT_EXPORT_BUTTON_ID;
   button.type = 'button';
   button.className = 'btn relative group-focus-within/dialog:focus-visible:[outline-width:1.5px] group-focus-within/dialog:focus-visible:[outline-offset:2.5px] group-focus-within/dialog:focus-visible:[outline-style:solid] group-focus-within/dialog:focus-visible:[outline-color:var(--text-primary)] btn-ghost text-token-text-primary hover:bg-token-surface-hover keyboard-focused:bg-token-surface-hover rounded-lg max-sm:hidden';
-  button.setAttribute('aria-label', '导出当前会话 Markdown');
+  button.setAttribute('aria-label', t('panel.exportCurrentMd'));
   button.innerHTML = `
     <div class="flex w-full items-center justify-center gap-1.5">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" aria-label="" class="-ms-0.5 icon" viewBox="0 0 20 20" fill="none">
         <path d="M10 3v8m0 0 3-3m-3 3-3-3M4.75 13.75v1.5A1.75 1.75 0 0 0 6.5 17h7A1.75 1.75 0 0 0 15.25 15.25v-1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
       </svg>
-      导出
+      ${t('common.export')}
     </div>
   `;
   return button;
@@ -516,10 +511,10 @@ function createPlaceholder(text: string): HTMLDivElement {
 
 function formatConversationDate(timestamp?: number): string {
   if (!timestamp) {
-    return '无时间信息';
+    return t('common.noTimeInfo');
   }
 
-  return new Date(timestamp * 1000).toLocaleString('zh-CN', {
+  return new Date(timestamp * 1000).toLocaleString(getDateLocale(), {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -544,7 +539,7 @@ function getCurrentConversationTitle(fallbackTitle: string): string {
     return title;
   }
 
-  return fallbackTitle.trim() || 'ChatGPT Conversation';
+  return fallbackTitle.trim() || t('markdown.fallbackTitle');
 }
 
 function delay(ms: number): Promise<void> {

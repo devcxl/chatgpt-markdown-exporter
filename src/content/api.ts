@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { fetchShareConversationFromPage, getChatIdFromUrl, isSharePage } from './page';
 import type {
   ApiConversation,
@@ -25,7 +26,7 @@ function getApiUrl(): string {
   const apiUrl = API_MAPPING[getBaseUrl()];
 
   if (!apiUrl) {
-    throw new Error(`Unsupported ChatGPT origin: ${getBaseUrl()}`);
+    throw new Error(t('api.unsupportedOrigin', { origin: getBaseUrl() }));
   }
 
   return apiUrl;
@@ -71,7 +72,7 @@ async function getAccessToken(): Promise<string> {
       return sessionToken;
     }
 
-    throw new Error('获取 ChatGPT 访问令牌失败，请确认你已登录并且页面已加载完成。');
+    throw new Error(t('api.accessTokenFailed'));
   }
   catch (error) {
     accessTokenPromise = null;
@@ -137,7 +138,11 @@ async function fetchApi<T>(
   if (!response.ok) {
     const detail = await readErrorDetail(response);
     throw new Error(
-      `ChatGPT API 请求失败：${response.status} ${response.statusText}${detail ? ` - ${detail}` : ''}`,
+      t('api.apiRequestFailed', {
+        status: String(response.status),
+        statusText: response.statusText,
+        detail: detail ? ` - ${detail}` : '',
+      }),
     );
   }
 
@@ -158,7 +163,7 @@ export function getCurrentChatId(): string {
   const chatId = getChatIdFromUrl();
 
   if (!chatId) {
-    throw new Error('当前页面没有会话 ID，请先打开一个 ChatGPT 会话。');
+    throw new Error(t('api.noChatId'));
   }
 
   return isSharePage() ? `__share__${chatId}` : chatId;
@@ -170,7 +175,7 @@ export async function fetchConversation(chatId = getCurrentChatId()): Promise<Ap
     const shareConversation = await fetchShareConversationFromPage();
 
     if (!shareConversation) {
-      throw new Error('读取分享页会话数据失败，请刷新页面后重试。');
+      throw new Error(t('api.sharePageReadFailed'));
     }
 
     return {

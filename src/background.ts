@@ -1,4 +1,5 @@
 import browser from 'webextension-polyfill';
+import { t } from './i18n';
 import { dedupeNamedFiles, sanitizeDownloadPath } from './shared/files';
 import {
   isContentScriptReadyMessage,
@@ -23,7 +24,6 @@ const IS_FIREFOX = typeof navigator !== 'undefined' && /firefox/i.test(navigator
 // 已就绪的内容脚本标签页集合
 const readyTabs = new Set<number>();
 
-// 监听标签页关闭
 browser.tabs.onRemoved.addListener((tabId) => {
   readyTabs.delete(tabId);
 });
@@ -33,7 +33,6 @@ browser.runtime.onInstalled.addListener(() => {
 });
 
 browser.runtime.onMessage.addListener((message: unknown, sender: browser.Runtime.MessageSender) => {
-  // Content script 报到
   if (isContentScriptReadyMessage(message)) {
     if (sender.tab?.id != null) {
       readyTabs.add(sender.tab.id);
@@ -41,17 +40,14 @@ browser.runtime.onMessage.addListener((message: unknown, sender: browser.Runtime
     return undefined;
   }
 
-  // Popup 请求会话列表
   if (isRequestConversationListMessage(message)) {
     return handlePopupConversationListRequest();
   }
 
-  // Popup 请求导出
   if (isRequestExportConversationsMessage(message)) {
     return handlePopupExportRequest(message);
   }
 
-  // 下载请求（来自 content script）
   if (!isDownloadMessage(message)) {
     return undefined;
   }
@@ -59,7 +55,7 @@ browser.runtime.onMessage.addListener((message: unknown, sender: browser.Runtime
   try {
     if (message.type === 'DOWNLOAD_MARKDOWN') {
       if (!isNamedTextFile(message.file)) {
-        throw new Error('无效的下载参数。');
+        throw new Error(t('background.invalidDownloadParams'));
       }
 
       void downloadTextFile(message.file.filename, message.file.content, message.saveAs);
@@ -67,7 +63,7 @@ browser.runtime.onMessage.addListener((message: unknown, sender: browser.Runtime
     }
 
     if (!Array.isArray(message.files) || message.files.some(file => !isNamedTextFile(file))) {
-      throw new Error('无效的 ZIP 下载参数。');
+      throw new Error(t('background.invalidZipParams'));
     }
 
     void downloadZipFile(message.filename, message.files, message.saveAs);
@@ -85,21 +81,20 @@ async function handlePopupConversationListRequest(): Promise<ConversationListRes
   const tabId = await findChatGPTTabId();
 
   if (tabId === null) {
-    return { ok: false, error: '未找到 ChatGPT 标签页，请先打开 chatgpt.com。' };
+    return { ok: false, error: t('background.noChatGPTTab') };
   }
 
-  // 等待 content script 就绪（必要时注入）
   const ok = await ensureTabReady(tabId);
 
   if (!ok) {
-    return { ok: false, error: '未能连接到 ChatGPT 页面，请刷新后重试。' };
+    return { ok: false, error: t('background.connectionFailedInit') };
   }
 
   try {
     return await browser.tabs.sendMessage(tabId, { type: 'REQUEST_CONVERSATION_LIST' }) as ConversationListResponse;
   }
   catch (error) {
-    return { ok: false, error: `通信失败：${error instanceof Error ? error.message : String(error)}` };
+    return { ok: false, error: t('background.communicationFailed', { error: error instanceof Error ? error.message : String(error) }) };
   }
 }
 
@@ -109,13 +104,13 @@ async function handlePopupExportRequest(
   const tabId = await findChatGPTTabId();
 
   if (tabId === null) {
-    return { ok: false, error: '未找到 ChatGPT 标签页，请先打开 chatgpt.com。' };
+    return { ok: false, error: t('background.noChatGPTTab') };
   }
 
   const ok = await ensureTabReady(tabId);
 
   if (!ok) {
-    return { ok: false, error: '未能连接到 ChatGPT 页面，请刷新后重试。' };
+    return { ok: false, error: t('background.connectionFailedInit') };
   }
 
   try {
@@ -128,7 +123,7 @@ async function handlePopupExportRequest(
     }) as RuntimeResponse;
   }
   catch (error) {
-    return { ok: false, error: `通信失败：${error instanceof Error ? error.message : String(error)}` };
+    return { ok: false, error: t('background.communicationFailed', { error: error instanceof Error ? error.message : String(error) }) };
   }
 }
 
@@ -143,7 +138,6 @@ async function findChatGPTTabId(): Promise<number | null> {
     return tabs[0].id;
   }
 
-  // 降级：查找所有窗口
   const allTabs = await browser.tabs.query({
     url: [...CHATGPT_TAB_URL_PATTERNS],
   });
@@ -156,12 +150,10 @@ async function findChatGPTTabId(): Promise<number | null> {
 }
 
 async function ensureTabReady(tabId: number): Promise<boolean> {
-  // 已报到 — 直接返回
   if (readyTabs.has(tabId)) {
     return true;
   }
 
-  // 尝试注入 content script
   let injected = false;
 
   try {
@@ -187,7 +179,6 @@ async function ensureTabReady(tabId: number): Promise<boolean> {
     }
   }
 
-  // 等待 content script 报到（最多 3 秒）
   for (let i = 0; i < 30; i++) {
     if (readyTabs.has(tabId)) {
       return true;
@@ -222,7 +213,7 @@ async function downloadTextFile(
   content: string,
   saveAs = true,
 ): Promise<void> {
-  ensureTextSize(content, MAX_TEXT_BYTES, '单个 Markdown 文件过大，已拒绝下载。');
+  ensureTextSize(content, MAX_TEXT_BYTES, t('background.fileTooLarge'));
 
   const blob = new Blob([content], {
     type: 'text/markdown;charset=utf-8',
@@ -237,11 +228,11 @@ async function downloadZipFile(
   saveAs = true,
 ): Promise<void> {
   if (files.length === 0) {
-    throw new Error('没有可下载的文件。');
+    throw new Error(t('background.noFiles'));
   }
 
   if (files.length > MAX_ZIP_FILES) {
-    throw new Error(`单次最多只能导出 ${MAX_ZIP_FILES} 个会话。`);
+    throw new Error(t('background.tooManyFiles', { max: MAX_ZIP_FILES }));
   }
 
   let totalBytes = 0;
@@ -249,11 +240,11 @@ async function downloadZipFile(
   for (const file of files) {
     const size = new TextEncoder().encode(file.content).length;
     totalBytes += size;
-    ensureTextSize(file.content, MAX_TEXT_BYTES, `文件过大：${file.filename}`);
+    ensureTextSize(file.content, MAX_TEXT_BYTES, t('background.fileTooLargeNested', { filename: file.filename }));
   }
 
   if (totalBytes > MAX_ZIP_TOTAL_BYTES) {
-    throw new Error('导出内容总量过大，请缩小批量范围后重试。');
+    throw new Error(t('background.contentTooLarge'));
   }
 
   const blob = buildZipBlob(dedupeNamedFiles(files));

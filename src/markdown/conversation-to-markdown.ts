@@ -1,5 +1,4 @@
-// src/markdown/conversation-to-markdown.ts
-
+import { t, getDateLocale } from '../i18n';
 import type {
   Citation,
   ContentReference,
@@ -36,7 +35,7 @@ export function conversationToMarkdown(
         `create_time: ${yamlString(toIso(conversation.createTime))}`,
         `update_time: ${yamlString(toIso(conversation.updateTime))}`,
         `exported_at: ${yamlString(exportedAt)}`,
-        'author: ChatGPT',
+        `author: ${yamlString(t('markdown.authorChatGPT'))}`,
         '---',
         '',
       ].join('\n')
@@ -89,11 +88,11 @@ function shouldSkipMessage(message: ConversationNodeMessage): boolean {
 function transformAuthor(author: ConversationNodeMessage['author']): string {
   switch (author.role) {
     case 'assistant':
-      return 'ChatGPT';
+      return t('markdown.authorChatGPT');
     case 'user':
-      return '用户';
+      return t('markdown.authorUser');
     case 'tool':
-      return `插件${author.name ? ` (${author.name})` : ''}`;
+      return `${t('markdown.authorPlugin')}${author.name ? ` (${author.name})` : ''}`;
     default:
       return author.role;
   }
@@ -118,7 +117,7 @@ function buildTimestamp(
 
   const date = new Date(message.create_time * 1000);
 
-  return date.toLocaleTimeString('en-US', {
+  return date.toLocaleTimeString(getDateLocale(), {
     hour: '2-digit',
     minute: '2-digit',
     hour12: !options.timestamp24h,
@@ -148,7 +147,7 @@ function transformContent(message: ConversationNodeMessage): string {
 
     case 'code':
       return [
-        'Code:',
+        t('markdown.codeLabel'),
         '```',
         content.text ?? '',
         '```',
@@ -163,7 +162,7 @@ function transformContent(message: ConversationNodeMessage): string {
       if (images) return images;
 
       return postProcess([
-        'Result:',
+        `${t('markdown.resultLabel')}`,
         '```',
         content.text ?? '',
         '```',
@@ -198,17 +197,17 @@ function transformContent(message: ConversationNodeMessage): string {
           }
 
           if (partObj.content_type === 'audio_transcription') {
-            return `[audio] ${partObj.text}`;
+            return `[${t('markdown.audioLabel')}] ${partObj.text}`;
           }
 
-          return `[Unsupported multimodal content: ${partObj.content_type}]`;
+          return t('markdown.unsupportedMultimodal', { type: partObj.content_type });
         })
         .filter(Boolean)
         .join('\n') ?? '';
     }
 
     default:
-      return `[Unsupported Content: ${content.content_type}]`;
+      return t('markdown.unsupportedContent', { type: content.content_type });
   }
 }
 

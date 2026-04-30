@@ -1,4 +1,5 @@
 import browser from 'webextension-polyfill';
+import { t, i18nPopulate, getDateLocale } from '../i18n';
 
 interface ConversationItem {
   id: string;
@@ -40,10 +41,11 @@ exportBtn.addEventListener('click', () => {
   void exportSelected();
 });
 
+i18nPopulate(document.body);
 void init();
 
 async function init(): Promise<void> {
-  setStatus('正在连接…');
+  setStatus(t('popup.connecting'));
 
   const result = await browser.runtime.sendMessage({ type: 'REQUEST_CONVERSATION_LIST' }) as {
     ok: boolean;
@@ -52,7 +54,7 @@ async function init(): Promise<void> {
   };
 
   if (!result?.ok) {
-    showError(result?.error ?? '连接失败，请确认当前在 ChatGPT 页面。');
+    showError(result?.error ?? t('popup.connectionFailed'));
     return;
   }
 
@@ -63,10 +65,10 @@ async function init(): Promise<void> {
   render();
 
   if (state.conversations.length === 0) {
-    setStatus('没有可导出的会话。', 'warning');
+    setStatus(t('common.noConversations'), 'warning');
   }
   else {
-    setStatus(`会话列表已加载，共 ${state.conversations.length} 条。`, 'success');
+    setStatus(t('popup.loadedCount', { count: state.conversations.length }), 'success');
   }
 }
 
@@ -80,7 +82,7 @@ async function loadConversations(): Promise<void> {
   updateControls();
   render();
 
-  setStatus('正在加载会话列表…');
+  setStatus(t('popup.loadingList'));
 
   try {
     const result = await browser.runtime.sendMessage({ type: 'REQUEST_CONVERSATION_LIST' }) as {
@@ -90,21 +92,21 @@ async function loadConversations(): Promise<void> {
     };
 
     if (!result?.ok) {
-      setStatus(result?.error ?? '加载失败。', 'error');
+      setStatus(result?.error ?? t('popup.loadFailed'), 'error');
       return;
     }
 
     state.conversations = result.conversations ?? [];
 
     if (state.conversations.length === 0) {
-      setStatus('没有可导出的会话。', 'warning');
+      setStatus(t('common.noConversations'), 'warning');
     }
     else {
-      setStatus(`会话列表已加载，共 ${state.conversations.length} 条。`, 'success');
+      setStatus(t('popup.loadedCount', { count: state.conversations.length }), 'success');
     }
   }
   catch (error) {
-    setStatus(`加载失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+    setStatus(t('popup.loadFailedWithError', { error: error instanceof Error ? error.message : String(error) }), 'error');
   }
   finally {
     state.isLoading = false;
@@ -121,13 +123,13 @@ async function exportSelected(): Promise<void> {
   const selectedIds = getSelectedIds();
 
   if (selectedIds.length === 0) {
-    setStatus('请先至少选择一个会话。', 'warning');
+    setStatus(t('popup.selectAtLeastOne'), 'warning');
     return;
   }
 
   state.isBusy = true;
   updateControls();
-  setStatus(`正在导出 ${selectedIds.length} 个会话…`);
+  setStatus(t('popup.exportingCount', { count: selectedIds.length }));
 
   try {
     const result = await browser.runtime.sendMessage({
@@ -139,14 +141,14 @@ async function exportSelected(): Promise<void> {
     }) as { ok: boolean; error?: string };
 
     if (result?.ok) {
-      setStatus(`已导出 ${selectedIds.length} 个会话。`, 'success');
+      setStatus(t('popup.exportedCount', { count: selectedIds.length }), 'success');
     }
     else {
-      setStatus(result?.error ?? '导出失败。', 'error');
+      setStatus(result?.error ?? t('popup.exportFailed'), 'error');
     }
   }
   catch (error) {
-    setStatus(`导出失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+    setStatus(t('popup.exportFailedWithError', { error: error instanceof Error ? error.message : String(error) }), 'error');
   }
   finally {
     state.isBusy = false;
@@ -172,12 +174,12 @@ function render(): void {
   listEl.replaceChildren();
 
   if (state.isLoading && state.conversations.length === 0) {
-    listEl.appendChild(createPlaceholder('正在加载会话列表…'));
+    listEl.appendChild(createPlaceholder(t('popup.loadingList')));
     return;
   }
 
   if (state.conversations.length === 0) {
-    listEl.appendChild(createPlaceholder('点击「加载 / 刷新」获取会话列表。'));
+    listEl.appendChild(createPlaceholder(t('popup.clickToLoad')));
     return;
   }
 
@@ -246,10 +248,10 @@ function createPlaceholder(text: string): HTMLDivElement {
 
 function formatDate(timestamp?: number): string {
   if (!timestamp) {
-    return '无时间信息';
+    return t('common.noTimeInfo');
   }
 
-  return new Date(timestamp * 1000).toLocaleString('zh-CN', {
+  return new Date(timestamp * 1000).toLocaleString(getDateLocale(), {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',

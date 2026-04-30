@@ -1,4 +1,5 @@
 import browser from 'webextension-polyfill';
+import { t } from '../i18n';
 import { mountCurrentExportButton } from './current-export-button';
 import { fetchAllConversations, fetchConversation, getCurrentChatId } from './api';
 import { processConversation } from './process-conversation';
@@ -12,7 +13,6 @@ import {
   type RuntimeResponse,
 } from '../shared/messages';
 
-// 向 background 报到：本标签页已就绪
 browser.runtime.sendMessage({ type: 'CONTENT_SCRIPT_READY' }).catch(() => {
   // background 可能尚未就绪，不影响页面功能
 });
@@ -88,7 +88,7 @@ async function handleExportConversations(
   }
 
   if (files.length === 0) {
-    return { ok: false, error: failed[0] ?? '批量导出失败。' };
+    return { ok: false, error: failed[0] ?? t('panel.batchExportFailed') };
   }
 
   const response = await browser.runtime.sendMessage({
@@ -99,7 +99,7 @@ async function handleExportConversations(
   }) as RuntimeResponse;
 
   if (!response?.ok) {
-    return { ok: false, error: response?.error ?? 'ZIP 下载失败。' };
+    return { ok: false, error: response?.error ?? t('panel.zipDownloadFailed') };
   }
 
   if (failed.length > 0) {
@@ -152,5 +152,5 @@ function getCurrentConversationTitle(fallbackTitle: string): string {
     return title;
   }
 
-  return fallbackTitle.trim() || 'ChatGPT Conversation';
+  return fallbackTitle.trim() || t('markdown.fallbackTitle');
 }
