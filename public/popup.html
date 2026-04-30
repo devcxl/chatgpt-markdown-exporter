@@ -156,28 +156,28 @@
   <div class="root">
     <div class="header">
       <div>
-        <div class="title">ChatGPT Exporter</div>
-        <div class="subtitle">批量导出面板</div>
+        <div class="title" data-i18n="popup.title">ChatGPT Exporter</div>
+        <div class="subtitle" data-i18n="popup.subtitle">批量导出面板</div>
       </div>
     </div>
     <section class="section">
-      <label class="checkbox-row"><input data-role="frontmatter" type="checkbox" checked />包含 YAML frontmatter</label>
-      <label class="checkbox-row"><input data-role="timestamps" type="checkbox" />包含消息时间</label>
-      <label class="checkbox-row"><input data-role="timestamp24h" type="checkbox" checked />使用 24 小时制</label>
+      <label class="checkbox-row"><input data-role="frontmatter" type="checkbox" checked /><span data-i18n="options.frontmatter">包含 YAML frontmatter</span></label>
+      <label class="checkbox-row"><input data-role="timestamps" type="checkbox" /><span data-i18n="options.timestamps">包含消息时间</span></label>
+      <label class="checkbox-row"><input data-role="timestamp24h" type="checkbox" checked /><span data-i18n="options.timestamp24h">使用 24 小时制</span></label>
     </section>
     <section class="section">
       <div class="section-header">
-        <span>批量导出（最近 100 条）</span>
-        <button class="secondary-button" type="button" data-role="refresh">加载 / 刷新</button>
+        <span data-i18n="popup.batchExportRange">批量导出（最近 100 条）</span>
+        <button class="secondary-button" type="button" data-role="refresh"><span data-i18n="common.refresh">加载 / 刷新</span></button>
       </div>
       <div class="toolbar">
-        <button class="secondary-button" type="button" data-role="select-all">全选</button>
-        <button class="secondary-button" type="button" data-role="clear-selection">清空</button>
+        <button class="secondary-button" type="button" data-role="select-all"><span data-i18n="common.selectAll">全选</span></button>
+        <button class="secondary-button" type="button" data-role="clear-selection"><span data-i18n="common.clearSelection">清空</span></button>
       </div>
       <div class="conversation-list" data-role="conversation-list"></div>
-      <button class="primary-button" type="button" data-role="export-selected">导出所选为 ZIP</button>
+      <button class="primary-button" type="button" data-role="export-selected"><span data-i18n="common.exportSelectedZip">导出所选为 ZIP</span></button>
     </section>
-    <p class="status" data-role="status">正在检测当前页面…</p>
+    <p class="status" data-role="status" data-i18n="popup.detecting">正在检测当前页面…</p>
   </div>
   <script type="module" src="popup/index.js"></script>
 </body>

@@ -33,6 +33,14 @@ function copyStaticFiles() {
       } catch {
         // 开发早期可能还没有图标
       }
+
+      try {
+        cpSync(resolve(root, "_locales"), resolve(root, "dist/_locales"), {
+          recursive: true
+        });
+      } catch {
+        // _locales 目录可能尚不存在
+      }
     }
   };
 }
