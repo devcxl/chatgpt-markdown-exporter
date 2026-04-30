@@ -1,4 +1,3 @@
-import JSZip from 'jszip';
 import browser from 'webextension-polyfill';
 import { dedupeNamedFiles, sanitizeDownloadPath } from './shared/files';
 import {
@@ -10,6 +9,7 @@ import {
   type ConversationListResponse,
   type RuntimeResponse,
 } from './shared/messages';
+import { buildZipBlob } from './shared/zip';
 
 const MAX_ZIP_FILES = 100;
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;
@@ -256,19 +256,7 @@ async function downloadZipFile(
     throw new Error('导出内容总量过大，请缩小批量范围后重试。');
   }
 
-  const zip = new JSZip();
-
-  for (const file of dedupeNamedFiles(files)) {
-    zip.file(file.filename, file.content);
-  }
-
-  const blob = await zip.generateAsync({
-    type: 'blob',
-    compression: 'DEFLATE',
-    compressionOptions: {
-      level: 6,
-    },
-  });
+  const blob = buildZipBlob(dedupeNamedFiles(files));
 
   await downloadBlob(blob, filename, saveAs);
 }

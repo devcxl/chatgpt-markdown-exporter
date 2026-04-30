@@ -35,7 +35,12 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "chatgpt-md-exporter@example.com"
+      "id": "chatgpt-md-exporter@example.com",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
     }
   },
   "icons": {

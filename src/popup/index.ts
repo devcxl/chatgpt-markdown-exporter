@@ -231,7 +231,10 @@ function showError(text: string): void {
     return;
   }
 
-  root.innerHTML = `<div class="error-banner">${text}</div>`;
+  const banner = document.createElement('div');
+  banner.className = 'error-banner';
+  banner.textContent = text;
+  root.replaceChildren(banner);
 }
 
 function createPlaceholder(text: string): HTMLDivElement {
