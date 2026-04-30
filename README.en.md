@@ -1,4 +1,4 @@
-<center>
+<div align="center">
 
 # ChatGPT Markdown Exporter
 
@@ -8,7 +8,7 @@
 
 Browser extension that exports ChatGPT conversations to Markdown files. Supports Chrome and Firefox.
 
-</center>
+</div>
 
 ## Features
 

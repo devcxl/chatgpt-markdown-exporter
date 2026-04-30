@@ -1,4 +1,4 @@
-<center>
+<div align="center">
 
 # ChatGPT Markdown Exporter
 
@@ -14,7 +14,7 @@
 
 浏览器扩展：将 ChatGPT 对话导出为 Markdown 文件。支持 Chrome 和 Firefox。
 
-</center>
+</div>
 
 ## 功能
 
