@@ -67,7 +67,7 @@ jobs:
       - name: Extract Firefox extension for AMO
         if: ${{ steps.amo-secrets.outputs.available == 'true' }}
         run: |
-          FIREFOX_ZIP=$(ls chatgpt-md-exporter-extension-*-firefox.zip)
+          FIREFOX_ZIP=$(ls chatgpt-markdown-exporter-*-firefox.zip)
           mkdir -p firefox-ext
           unzip -q "$FIREFOX_ZIP" -d firefox-ext
 
@@ -101,6 +101,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            chatgpt-md-exporter-extension-*-chrome.zip
-            chatgpt-md-exporter-extension-*-firefox.zip
+            chatgpt-markdown-exporter-*-chrome.zip
+            chatgpt-markdown-exporter-*-firefox.zip
           generate_release_notes: true

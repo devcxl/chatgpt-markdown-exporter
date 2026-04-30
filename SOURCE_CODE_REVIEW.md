@@ -37,13 +37,13 @@ Static assets (`manifest.json`, HTML files, icons) are copied directly from the 
 The Firefox extension package is generated at the repository root:
 
 ```
-chatgpt-md-exporter-extension-<version>-firefox.zip
+chatgpt-markdown-exporter-<version>-firefox.zip
 ```
 
 To reproduce the unpacked extension directory (as submitted):
 
 ```bash
-unzip chatgpt-md-exporter-extension-<version>-firefox.zip -d extension-dir
+unzip chatgpt-markdown-exporter-<version>-firefox.zip -d extension-dir
 ```
 
 ## Source Map
