@@ -8,6 +8,7 @@ import {
   isRequestConversationListMessage,
   isRequestExportConversationsMessage,
   type ConversationListResponse,
+  type RequestConversationListMessage,
   type RuntimeResponse,
 } from './shared/messages';
 import { buildZipBlob } from './shared/zip';
@@ -41,7 +42,7 @@ browser.runtime.onMessage.addListener((message: unknown, sender: browser.Runtime
   }
 
   if (isRequestConversationListMessage(message)) {
-    return handlePopupConversationListRequest();
+    return handlePopupConversationListRequest(message);
   }
 
   if (isRequestExportConversationsMessage(message)) {
@@ -77,7 +78,7 @@ browser.runtime.onMessage.addListener((message: unknown, sender: browser.Runtime
   }
 });
 
-async function handlePopupConversationListRequest(): Promise<ConversationListResponse> {
+async function handlePopupConversationListRequest(message: RequestConversationListMessage): Promise<ConversationListResponse> {
   const tabId = await findChatGPTTabId();
 
   if (tabId === null) {
@@ -91,7 +92,7 @@ async function handlePopupConversationListRequest(): Promise<ConversationListRes
   }
 
   try {
-    return await browser.tabs.sendMessage(tabId, { type: 'REQUEST_CONVERSATION_LIST' }) as ConversationListResponse;
+    return await browser.tabs.sendMessage(tabId, { type: 'REQUEST_CONVERSATION_LIST', offset: message.offset, limit: message.limit }) as ConversationListResponse;
   }
   catch (error) {
     return { ok: false, error: t('background.communicationFailed', { error: error instanceof Error ? error.message : String(error) }) };

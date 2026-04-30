@@ -19,6 +19,8 @@ export type DownloadZipMessage = {
 
 export type RequestConversationListMessage = {
   type: 'REQUEST_CONVERSATION_LIST';
+  offset?: number;
+  limit?: number;
 };
 
 export type RequestExportConversationsMessage = {
@@ -56,6 +58,7 @@ export type ConversationListResponse = {
     create_time: number;
     update_time?: number;
   }>;
+  total?: number | null;
 };
 
 export function isContentScriptReadyMessage(

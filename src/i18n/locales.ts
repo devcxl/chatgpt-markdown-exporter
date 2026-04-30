@@ -14,6 +14,8 @@ export const messages: I18nMessages = {
     'common.selectAll': '全选',
     'common.clearSelection': '清空',
     'common.exportSelectedZip': '导出所选为 ZIP',
+    'common.itemsCount': '会话列表（{count} 条）',
+    'common.loadMore': '加载更多…',
 
     'options.frontmatter': '包含 YAML frontmatter',
     'options.timestamps': '包含消息时间',
@@ -97,6 +99,8 @@ export const messages: I18nMessages = {
     'common.selectAll': 'Select All',
     'common.clearSelection': 'Clear',
     'common.exportSelectedZip': 'Export Selected as ZIP',
+    'common.itemsCount': 'Conversations ({count})',
+    'common.loadMore': 'Load more…',
 
     'options.frontmatter': 'Include YAML frontmatter',
     'options.timestamps': 'Include message timestamps',

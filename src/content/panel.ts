@@ -1,6 +1,6 @@
 import browser from 'webextension-polyfill';
 import { t, getDateLocale } from '../i18n';
-import { fetchAllConversations, fetchConversation, getCurrentChatId } from './api';
+import { fetchConversations, fetchConversation, getCurrentChatId } from './api';
 import { processConversation } from './process-conversation';
 import type { ApiConversationItem } from './types';
 import { conversationToMarkdown, type MarkdownOptions } from '../markdown/conversation-to-markdown';
@@ -14,7 +14,7 @@ import type { RuntimeResponse } from '../shared/messages';
 const HOST_ID = 'cgpt-exporter-host';
 const CURRENT_EXPORT_BUTTON_ID = 'cgpt-export-current-button';
 const HEADER_ACTIONS_SELECTOR = '#conversation-header-actions';
-const MAX_CONVERSATIONS = 100;
+const BATCH_SIZE = 20;
 let panelController: PanelController | null = null;
 
 type StatusTone = 'muted' | 'success' | 'warning' | 'error';
@@ -30,11 +30,13 @@ type PanelState = {
   isBusy: boolean;
   isLoadingList: boolean;
   hasLoadedList: boolean;
+  hasMore: boolean;
   conversations: ApiConversationItem[];
   currentExportButton: HTMLButtonElement;
   panel: HTMLDivElement;
   statusEl: HTMLParagraphElement;
   conversationListEl: HTMLDivElement;
+  sectionTitleEl: HTMLSpanElement;
   refreshButton: HTMLButtonElement;
   selectAllButton: HTMLButtonElement;
   clearSelectionButton: HTMLButtonElement;
@@ -96,7 +98,7 @@ export function mountExportPanel(): PanelController {
     </section>
     <section class="section">
       <div class="section-header">
-        <span>${t('panel.loadingList', { count: MAX_CONVERSATIONS })}</span>
+        <span data-role="section-title">${t('panel.title')}</span>
         <button class="secondary-button small" type="button" data-role="refresh">${t('common.refresh')}</button>
       </div>
       <div class="toolbar">
@@ -117,11 +119,13 @@ export function mountExportPanel(): PanelController {
     isBusy: false,
     isLoadingList: false,
     hasLoadedList: false,
+    hasMore: true,
     conversations: [],
     currentExportButton,
     panel,
     statusEl: queryRequired<HTMLParagraphElement>(panel, '[data-role=\'status\']'),
     conversationListEl: queryRequired<HTMLDivElement>(panel, '[data-role=\'conversation-list\']'),
+    sectionTitleEl: queryRequired<HTMLSpanElement>(panel, '[data-role=\'section-title\']'),
     refreshButton: queryRequired<HTMLButtonElement>(panel, '[data-role=\'refresh\']'),
     selectAllButton: queryRequired<HTMLButtonElement>(panel, '[data-role=\'select-all\']'),
     clearSelectionButton: queryRequired<HTMLButtonElement>(panel, '[data-role=\'clear-selection\']'),
@@ -166,6 +170,13 @@ export function mountExportPanel(): PanelController {
   addTrustedClickListener(state.exportSelectedButton, () => {
     void exportSelectedConversations(state);
   });
+
+  state.conversationListEl.addEventListener('scroll', () => {
+    const el = state.conversationListEl;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100 && state.hasMore && !state.isLoadingList) {
+      void loadMoreConversations(state);
+    }
+  }, { passive: true });
 
   renderConversationList(state);
 
@@ -233,31 +244,28 @@ async function loadConversationList(state: PanelState, forceReload: boolean): Pr
   if (forceReload) {
     state.conversations = [];
     state.hasLoadedList = false;
+    state.hasMore = true;
   }
 
   updateControls(state);
+  state.sectionTitleEl.textContent = t('common.loading');
   renderConversationList(state);
-  setStatus(state, t('panel.loadingList', { count: MAX_CONVERSATIONS }));
+  setStatus(state, t('panel.loadingList', { count: BATCH_SIZE }));
 
   try {
-    const loaded: ApiConversationItem[] = [];
-
-    const conversations = await fetchAllConversations(MAX_CONVERSATIONS, (batch) => {
-      loaded.push(...batch);
-      state.conversations = [...loaded];
-      renderConversationList(state);
-      setStatus(state, t('panel.loadingProgress', { count: loaded.length }));
-    });
-
-    state.conversations = conversations;
+    const result = await fetchConversations(0, BATCH_SIZE);
+    state.conversations = result.items;
+    state.hasMore = result.items.length >= BATCH_SIZE;
     state.hasLoadedList = true;
     renderConversationList(state);
 
-    if (conversations.length === 0) {
+    if (result.items.length === 0) {
       setStatus(state, t('common.noConversations'), 'warning');
+      state.sectionTitleEl.textContent = t('common.noConversations');
     }
     else {
-      setStatus(state, t('panel.loadedCount', { count: conversations.length }), 'success');
+      updateSectionTitle(state);
+      setStatus(state, t('panel.loadedCount', { count: state.conversations.length }), 'success');
     }
   }
   catch (error) {
@@ -267,6 +275,32 @@ async function loadConversationList(state: PanelState, forceReload: boolean): Pr
     state.isLoadingList = false;
     updateControls(state);
     renderConversationList(state);
+  }
+}
+
+async function loadMoreConversations(state: PanelState): Promise<void> {
+  if (state.isLoadingList || !state.hasMore) {
+    return;
+  }
+
+  state.isLoadingList = true;
+  renderConversationList(state);
+
+  try {
+    const offset = state.conversations.length;
+    const result = await fetchConversations(offset, BATCH_SIZE);
+    state.conversations = [...state.conversations, ...result.items];
+    state.hasMore = result.items.length >= BATCH_SIZE;
+    renderConversationList(state);
+    updateSectionTitle(state);
+    setStatus(state, t('panel.loadedCount', { count: state.conversations.length }), 'success');
+  }
+  catch (error) {
+    setStatus(state, formatError(error), 'error');
+  }
+  finally {
+    state.isLoadingList = false;
+    updateControls(state);
   }
 }
 
@@ -356,6 +390,12 @@ async function withBusy(state: PanelState, action: () => Promise<void>): Promise
   }
 }
 
+function updateSectionTitle(state: PanelState): void {
+  state.sectionTitleEl.textContent = state.hasMore
+    ? t('common.itemsCount', { count: state.conversations.length })
+    : t('panel.loadedCount', { count: state.conversations.length });
+}
+
 function renderConversationList(state: PanelState): void {
   state.conversationListEl.replaceChildren();
 
@@ -396,6 +436,10 @@ function renderConversationList(state: PanelState): void {
   }
 
   state.conversationListEl.appendChild(fragment);
+
+  if (state.isLoadingList && state.hasMore) {
+    state.conversationListEl.appendChild(createPlaceholder(t('common.loadMore')));
+  }
 }
 
 function setAllSelections(state: PanelState, checked: boolean): void {

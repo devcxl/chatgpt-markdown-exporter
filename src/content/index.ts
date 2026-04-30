@@ -1,7 +1,7 @@
 import browser from 'webextension-polyfill';
 import { t } from '../i18n';
 import { mountCurrentExportButton } from './current-export-button';
-import { fetchAllConversations, fetchConversation, getCurrentChatId } from './api';
+import { fetchAllConversations, fetchConversations, fetchConversation, getCurrentChatId } from './api';
 import { processConversation } from './process-conversation';
 import { conversationToMarkdown, type MarkdownOptions } from '../markdown/conversation-to-markdown';
 import { buildCurrentMarkdownFilename, buildMarkdownFilename, buildZipFilename } from '../shared/files';
@@ -30,7 +30,7 @@ browser.runtime.onMessage.addListener((message: unknown) => {
   }
 
   if (isRequestConversationListMessage(message)) {
-    return handleConversationList();
+    return handleConversationList(message.offset, message.limit);
   }
 
   if (isRequestExportConversationsMessage(message)) {
@@ -47,8 +47,20 @@ browser.runtime.onMessage.addListener((message: unknown) => {
   return undefined;
 });
 
-async function handleConversationList(): Promise<ConversationListResponse> {
+async function handleConversationList(
+  offset?: number,
+  limit?: number,
+): Promise<ConversationListResponse> {
   try {
+    if (offset != null && limit != null) {
+      const result = await fetchConversations(offset, limit);
+      return {
+        ok: true,
+        conversations: result.items,
+        total: result.total,
+      };
+    }
+
     const conversations = await fetchAllConversations(100);
     return { ok: true, conversations };
   }
