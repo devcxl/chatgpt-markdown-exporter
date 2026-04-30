@@ -94,8 +94,7 @@ jobs:
             --amo-metadata amo-metadata.json \
             --upload-source-code web-ext-source/source.zip \
             --api-key "$AMO_JWT_ISSUER" \
-            --api-secret "$AMO_JWT_SECRET" \
-            --approval-timeout 900000
+            --api-secret "$AMO_JWT_SECRET"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
