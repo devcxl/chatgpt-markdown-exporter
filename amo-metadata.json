@@ -1,0 +1,25 @@
+{
+  "name": {
+    "en-US": "ChatGPT Markdown Exporter"
+  },
+  "summary": {
+    "en-US": "Export ChatGPT conversations as Markdown files. Supports single and batch export, with code blocks, math formulas, and multimodal placeholders."
+  },
+  "description": {
+    "en-US": "A browser extension that exports ChatGPT conversations as Markdown files. Features:\n\n- One-click export of the current ChatGPT conversation\n- Batch export of multiple conversations\n- Fetches data via ChatGPT backend API (not DOM scraping)\n- Preserves User/Assistant role labels, code blocks, and math formulas\n- Preserves multimodal content placeholders (images, audio)\n- Preserves web reference links\n- Supports shared conversation page export\n- Manifest V3, compatible with Chrome and Firefox"
+  },
+  "categories": {
+    "firefox": ["other"]
+  },
+  "requires_payment": false,
+  "homepage": {
+    "en-US": "https://github.com/devcxl/chatgpt-markdown-exporter"
+  },
+  "version": {
+    "license": "MIT",
+    "release_notes": {
+      "en-US": "Automated release from GitHub Actions."
+    },
+    "approval_notes": "Built from the source archive uploaded with this submission. The extension uses Vite to bundle the source code. See SOURCE_CODE_REVIEW.md for full build instructions.\n\nBuild command: pnpm install && pnpm package:firefox\n\nThe output is a ZIP archive at the repository root. The unpacked extension directory can be obtained by unzipping this file. All bundled JavaScript is generated from the TypeScript source in src/ with no manual edits."
+  }
+}
