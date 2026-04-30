@@ -12,7 +12,7 @@
     "zh-CN": "一款将 ChatGPT 对话导出为 Markdown 文件的浏览器扩展。功能特性：\n\n- 一键导出当前 ChatGPT 对话\n- 批量导出多条对话\n- 通过 ChatGPT 后端 API 获取数据（非 DOM 抓取）\n- 保留用户/助手角色标签、代码块和数学公式\n- 保留多模态内容占位符（图片、音频）\n- 保留网页引用链接\n- 支持分享页面的对话导出\n- Manifest V3，兼容 Chrome 和 Firefox\n\n开源（MIT 协议）——欢迎在 GitHub 上贡献代码。"
   },
   "categories": {
-    "firefox": ["productivity"]
+    "firefox": ["other"]
   },
   "requires_payment": false,
   "homepage": {

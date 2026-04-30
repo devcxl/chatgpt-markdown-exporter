@@ -1,3 +1,5 @@
+<center>
+
 # ChatGPT Markdown Exporter
 
 <img src="public/icons/icon-128.png" width="128" height="128" />
@@ -5,6 +7,8 @@
 > 中文：[README.md](./README.md)
 
 Browser extension that exports ChatGPT conversations to Markdown files. Supports Chrome and Firefox.
+
+</center>
 
 ## Features
 

@@ -1,3 +1,5 @@
+<center>
+
 # ChatGPT Markdown Exporter
 
 <img src="public/icons/icon-128.png" width="128" height="128" />
@@ -11,6 +13,8 @@
 [![Firefox](https://img.shields.io/badge/Firefox-Add--on-orange?logo=firefoxbrowser)](https://www.mozilla.org/firefox/)
 
 浏览器扩展：将 ChatGPT 对话导出为 Markdown 文件。支持 Chrome 和 Firefox。
+
+</center>
 
 ## 功能
 
