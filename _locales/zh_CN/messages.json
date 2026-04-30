@@ -1,0 +1,11 @@
+{
+  "extName": {
+    "message": "ChatGPT Markdown 导出"
+  },
+  "extDescription": {
+    "message": "将当前 ChatGPT 会话导出为 Markdown 文件。"
+  },
+  "extDefaultTitle": {
+    "message": "ChatGPT Markdown 导出"
+  }
+}
