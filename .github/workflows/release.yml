@@ -1,6 +1,7 @@
+---
 name: Release
 
-on:
+"on":
   push:
     tags:
       - 'v*'
@@ -50,6 +51,51 @@ jobs:
       - run: pnpm lint
 
       - run: pnpm package:all
+
+      - name: Check AMO secrets
+        id: amo-secrets
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          if [ -n "$AMO_JWT_ISSUER" ] && [ -n "$AMO_JWT_SECRET" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract Firefox extension for AMO
+        if: ${{ steps.amo-secrets.outputs.available == 'true' }}
+        run: |
+          FIREFOX_ZIP=$(ls chatgpt-md-exporter-extension-*-firefox.zip)
+          mkdir -p firefox-ext
+          unzip -q "$FIREFOX_ZIP" -d firefox-ext
+
+      - name: Prepare source archive for AMO
+        if: ${{ steps.amo-secrets.outputs.available == 'true' }}
+        run: |
+          mkdir -p web-ext-source
+          zip -r web-ext-source/source.zip . \
+            -x ".git/*" \
+            -x "node_modules/*" \
+            -x "dist/*" \
+            -x "*.zip" \
+            -x "web-ext-source/*"
+
+      - name: Submit to Firefox Add-ons (AMO)
+        if: ${{ steps.amo-secrets.outputs.available == 'true' }}
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          pnpm exec web-ext sign \
+            --source-dir firefox-ext \
+            --channel=listed \
+            --amo-metadata amo-metadata.json \
+            --upload-source-code web-ext-source/source.zip \
+            --api-key "$AMO_JWT_ISSUER" \
+            --api-secret "$AMO_JWT_SECRET" \
+            --approval-timeout 900000
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
