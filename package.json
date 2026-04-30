@@ -10,26 +10,28 @@
   "scripts": {
     "dev": "node scripts/build.mjs --watch",
     "build": "node scripts/build.mjs",
-    "package:firefox": "npm run build && node scripts/package.mjs firefox",
-    "package:chrome": "npm run build && node scripts/package.mjs chrome",
-    "package:all": "npm run package:firefox && npm run package:chrome",
+    "package:firefox": "pnpm run build && node --experimental-strip-types scripts/package.mjs firefox",
+    "package:chrome": "pnpm run build && node --experimental-strip-types scripts/package.mjs chrome",
+    "package:all": "pnpm run package:firefox && pnpm run package:chrome",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "lint:fix": "eslint --fix src"
   },
   "dependencies": {
-    "jszip": "^3.10.1",
     "sanitize-filename": "^1.6.3",
     "webextension-polyfill": "^0.12.0"
   },
   "devDependencies": {
+    "@stylistic/eslint-plugin": "^4.2.0",
     "@types/node": "^20.11.20",
     "@types/webextension-polyfill": "^0.12.3",
-    "@stylistic/eslint-plugin": "^4.2.0",
     "eslint": "^9.15.0",
     "typescript": "^5.5.2",
     "typescript-eslint": "^8.16.0",
     "vite": "^5.3.2",
+    "vitest": "^3.2.4",
     "web-ext": "^10.1.0"
   }
 }

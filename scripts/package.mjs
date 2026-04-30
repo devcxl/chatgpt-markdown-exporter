@@ -1,6 +1,14 @@
-import JSZip from "jszip";
+/**
+ * Build-time packaging script.
+ *
+ * Reads compiled files from dist/, adjusts manifest.json per target,
+ * and writes a ZIP archive using the shared ZIP core.
+ *
+ * Run with: node --experimental-strip-types scripts/package.mjs [firefox|chrome]
+ */
 import { readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { resolve, relative, sep } from "node:path";
+import { buildZipBuffer } from "../src/shared/zip-core.ts";
 
 const root = process.cwd();
 const distDir = resolve(root, "dist");
@@ -21,35 +29,41 @@ if (target === "firefox") {
   delete manifest.browser_specific_settings;
 }
 
-const zip = new JSZip();
-await addDirectory(zip, distDir);
-zip.file("manifest.json", `${JSON.stringify(manifest, null, 2)}\n`);
+const files = await collectFiles(distDir);
+
+files.push({
+  path: "manifest.json",
+  content: new TextEncoder().encode(`${JSON.stringify(manifest, null, 2)}\n`),
+  mtime: new Date(),
+});
 
 const outputPath = resolve(
   root,
   `${packageJson.name}-${packageJson.version}-${target}.zip`
 );
 
-const content = await zip.generateAsync({
-  type: "nodebuffer",
-  compression: "DEFLATE",
-  compressionOptions: {
-    level: 9
-  }
-});
+const content = buildZipBuffer(files);
 
-await writeFile(outputPath, content);
+await writeFile(outputPath, Buffer.from(content));
 
 console.log(`已生成 ${target} 安装包：${outputPath}`);
 
-async function addDirectory(zipFile, dirPath) {
+/* ------------------------------------------------------------------ */
+/*  Directory traversal                                                */
+/* ------------------------------------------------------------------ */
+
+async function collectFiles(dirPath) {
+  /** @type {Array<{path: string, content: Uint8Array, mtime: Date}>} */
+  const files = [];
   const entries = await readdir(dirPath, { withFileTypes: true });
+
+  entries.sort((left, right) => left.name.localeCompare(right.name));
 
   for (const entry of entries) {
     const absolutePath = resolve(dirPath, entry.name);
 
     if (entry.isDirectory()) {
-      await addDirectory(zipFile, absolutePath);
+      files.push(...await collectFiles(absolutePath));
       continue;
     }
 
@@ -69,8 +83,14 @@ async function addDirectory(zipFile, dirPath) {
       continue;
     }
 
-    zipFile.file(zipPath, await readFile(absolutePath));
+    files.push({
+      path: zipPath,
+      content: await readFile(absolutePath),
+      mtime: fileStat.mtime,
+    });
   }
+
+  return files;
 }
 
 function toZipPath(filePath) {
