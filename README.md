@@ -69,8 +69,6 @@ src/
 
 **核心流程**：Content Script 通过 `fetch` 调用 ChatGPT 的后端 API（`/backend-api/conversation/{id}`）获取原始对话数据，经 `process-conversation` 转为结构化模型，再由 `conversation-to-markdown` 渲染为 Markdown 字符串，最终通过 Service Worker 的 `downloads.download()` 写入文件。
 
-相比 [pionxzh/chatgpt-exporter](https://github.com/pionxzh/chatgpt-exporter)（DOM 抓取），本项目直接使用 ChatGPT 内部 API，数据更完整、更稳定。
-
 ## 开发
 
 ```bash
