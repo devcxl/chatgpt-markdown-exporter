@@ -108,7 +108,7 @@ async function getTeamAccountId(accessToken: string): Promise<string | null> {
   return teamAccountIdPromise;
 }
 
-async function fetchApi<T>(
+export async function fetchApi<T>(
   path: string,
   init: RequestInit = {},
   retryUnauthorized = true,
