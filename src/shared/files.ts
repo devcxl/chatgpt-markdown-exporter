@@ -5,6 +5,12 @@ export type NamedTextFile = {
   content: string;
 };
 
+export type NamedZipEntry = {
+  filename: string;
+  content: string; // 文本内容（.md 文件）
+  data?: string; // base64 编码的二进制数据（图片等）
+};
+
 export function buildMarkdownFilename(
   title: string,
   chatId: string,
@@ -19,6 +25,11 @@ export function buildMarkdownFilename(
 export function buildCurrentMarkdownFilename(title: string, chatId: string): string {
   const safeTitle = sanitizeFilename(title).trim();
   return `${safeTitle || chatId}.md`;
+}
+
+export function buildCurrentZipFilename(title: string, chatId: string): string {
+  const safeTitle = sanitizeFilename(title).trim();
+  return `chatgpt-${safeTitle || chatId}.zip`;
 }
 
 export function buildZipFilename(date = new Date()): string {

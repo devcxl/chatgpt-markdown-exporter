@@ -1,4 +1,4 @@
-import type { NamedTextFile } from './files';
+import type { NamedTextFile, NamedZipEntry } from './files';
 
 export type PingExporterPanelMessage = {
   type: 'PING_EXPORTER_PANEL';
@@ -13,7 +13,7 @@ export type DownloadMarkdownMessage = {
 export type DownloadZipMessage = {
   type: 'DOWNLOAD_ZIP';
   filename: string;
-  files: NamedTextFile[];
+  files: NamedZipEntry[];
   saveAs?: boolean;
 };
 
@@ -101,6 +101,18 @@ export function isNamedTextFile(value: unknown): value is NamedTextFile {
     && typeof value.filename === 'string'
     && 'content' in value
     && typeof value.content === 'string';
+}
+
+export function isNamedZipEntry(value: unknown): value is NamedZipEntry {
+  if (typeof value !== 'object' || value === null) return false;
+  if (typeof (value as Record<string, unknown>).filename !== 'string') return false;
+  if (typeof (value as Record<string, unknown>).content !== 'string') return false;
+
+  const data = (value as Record<string, unknown>).data;
+
+  if (data !== undefined && typeof data !== 'string') return false;
+
+  return true;
 }
 
 function isObject(value: unknown): value is { type?: string } {
