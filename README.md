@@ -10,7 +10,7 @@
 [![Version](https://img.shields.io/github/package-json/v/devcxl/chatgpt-markdown-exporter)](https://github.com/devcxl/chatgpt-markdown-exporter/releases)
 [![License](https://img.shields.io/github/license/devcxl/chatgpt-markdown-exporter)](./LICENSE)
 [![Chrome](https://img.shields.io/badge/Chrome-MV3-blue?logo=googlechrome)](https://developer.chrome.com/docs/extensions/mv3/intro/)
-[![Firefox](https://img.shields.io/badge/Firefox-Add--on-orange?logo=firefoxbrowser)](https://www.mozilla.org/firefox/)
+[![Firefox Add-on](https://img.shields.io/badge/Firefox-Add--on-orange?logo=firefoxbrowser)](https://addons.mozilla.org/zh-CN/firefox/addon/chatgpt-markdown-exporter1/)
 
 浏览器扩展：将 ChatGPT 对话导出为 Markdown 文件。支持 Chrome 和 Firefox。
 
@@ -30,9 +30,9 @@
 
 ## 安装
 
-**Chrome Web Store  / Firefox Add-ons**
+**Chrome Web Store**
 
-> 暂未上架商店，可通过以下方式手动安装。
+> 暂未上架 Chrome 商店，可通过以下方式手动安装。
 
 ### Chrome / Edge / Arc 等 Chromium 浏览器
 
@@ -43,10 +43,15 @@
 
 ### Firefox
 
-1. 从 [Releases](https://github.com/devcxl/chatgpt-markdown-exporter/releases) 下载 `*-firefox.zip`
-2. 解压到本地目录
-3. 打开 `about:debugging#/runtime/this-firefox`
-4. 点击「临时载入附加组件」，选择解压目录中的 `manifest.json`
+**已上架 Firefox Add-ons：** [点击安装](https://addons.mozilla.org/zh-CN/firefox/addon/chatgpt-markdown-exporter1/)
+
+<a href="https://addons.mozilla.org/zh-CN/firefox/addon/chatgpt-markdown-exporter1/"><img src="https://extensionworkshop.com/assets/img/documentation/publish/get-the-addon-178x60px.png" height="60" alt="Get the addon"></a>
+
+或从 [Releases](https://github.com/devcxl/chatgpt-markdown-exporter/releases) 下载 `*-firefox.zip` 手动安装：
+
+1. 解压到本地目录
+2. 打开 `about:debugging#/runtime/this-firefox`
+3. 点击「临时载入附加组件」，选择解压目录中的 `manifest.json`
 
 ## 使用
 

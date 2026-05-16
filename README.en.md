@@ -6,6 +6,13 @@
 
 > 中文：[README.md](./README.md)
 
+
+[![CI](https://github.com/devcxl/chatgpt-markdown-exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/devcxl/chatgpt-markdown-exporter/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/github/package-json/v/devcxl/chatgpt-markdown-exporter)](https://github.com/devcxl/chatgpt-markdown-exporter/releases)
+[![License](https://img.shields.io/github/license/devcxl/chatgpt-markdown-exporter)](./LICENSE)
+[![Chrome](https://img.shields.io/badge/Chrome-MV3-blue?logo=googlechrome)](https://developer.chrome.com/docs/extensions/mv3/intro/)
+[![Firefox Add-on](https://img.shields.io/badge/Firefox-Add--on-orange?logo=firefoxbrowser)](https://addons.mozilla.org/zh-CN/firefox/addon/chatgpt-markdown-exporter1/)
+
 Browser extension that exports ChatGPT conversations to Markdown files. Supports Chrome and Firefox.
 
 </div>
@@ -24,9 +31,9 @@ Browser extension that exports ChatGPT conversations to Markdown files. Supports
 
 ## Installation
 
-**Chrome Web Store / Firefox Add-ons**
+**Chrome Web Store**
 
-> Not yet listed in stores. Manual installation available below.
+> Not yet listed on Chrome Web Store. Manual installation available below.
 
 ### Chrome / Edge / Arc and other Chromium browsers
 
@@ -37,10 +44,15 @@ Browser extension that exports ChatGPT conversations to Markdown files. Supports
 
 ### Firefox
 
-1. Download `*-firefox.zip` from [Releases](https://github.com/devcxl/chatgpt-markdown-exporter/releases)
-2. Extract to a local directory
-3. Open `about:debugging#/runtime/this-firefox`
-4. Click **Load Temporary Add-on** and select `manifest.json` from the extracted directory
+**Now available on Firefox Add-ons:** [Install from store](https://addons.mozilla.org/zh-CN/firefox/addon/chatgpt-markdown-exporter1/)
+
+<a href="https://addons.mozilla.org/zh-CN/firefox/addon/chatgpt-markdown-exporter1/"><img src="https://extensionworkshop.com/assets/img/documentation/publish/get-the-addon-178x60px.png" height="60" alt="Get the addon"></a>
+
+Or download `*-firefox.zip` from [Releases](https://github.com/devcxl/chatgpt-markdown-exporter/releases) for manual installation:
+
+1. Extract to a local directory
+2. Open `about:debugging#/runtime/this-firefox`
+3. Click **Load Temporary Add-on** and select `manifest.json` from the extracted directory
 
 ## Usage
 
