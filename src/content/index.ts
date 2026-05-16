@@ -4,7 +4,7 @@ import { mountCurrentExportButton } from './current-export-button';
 import { fetchAllConversations, fetchConversations, fetchConversation, getCurrentChatId } from './api';
 import { processConversation } from './process-conversation';
 import { conversationToMarkdown, type MarkdownOptions } from '../markdown/conversation-to-markdown';
-import { buildCurrentMarkdownFilename, buildMarkdownFilename, buildZipFilename } from '../shared/files';
+import { buildCurrentMarkdownFilename, buildCurrentZipFilename, buildMarkdownFilename, buildZipFilename } from '../shared/files';
 import {
   isPingExporterPanelMessage,
   isRequestConversationListMessage,
@@ -12,6 +12,8 @@ import {
   type ConversationListResponse,
   type RuntimeResponse,
 } from '../shared/messages';
+import { resolveImagesAsFileRefs, type ImageFileEntry } from './images';
+import { showToast } from './toast';
 
 browser.runtime.sendMessage({ type: 'CONTENT_SCRIPT_READY' }).catch(() => {
   // background 可能尚未就绪，不影响页面功能
@@ -76,12 +78,21 @@ async function handleExportConversations(
   chatIds: string[],
   options: MarkdownOptions,
 ): Promise<RuntimeResponse> {
-  const files: Array<{ filename: string; content: string }> = [];
+  const files: Array<{ filename: string; content: string; data?: string }> = [];
   const failed: string[] = [];
 
   for (const chatId of chatIds) {
     try {
       const rawConversation = await fetchConversation(chatId);
+      const imageEntries: ImageFileEntry[] = [];
+
+      try {
+        await resolveImagesAsFileRefs(rawConversation, imageEntries, 'ChatGPT/');
+      }
+      catch {
+        showToast(`图片解析失败：${chatId}`, 'info');
+      }
+
       const conversation = processConversation(rawConversation);
       const markdown = conversationToMarkdown(conversation, options, {
         sourceUrl: `${location.origin}/c/${conversation.id}`,
@@ -91,6 +102,10 @@ async function handleExportConversations(
         filename: buildMarkdownFilename(conversation.title, conversation.id),
         content: markdown,
       });
+
+      for (const img of imageEntries) {
+        files.push({ filename: img.filename, content: '', data: img.data });
+      }
     }
     catch (error) {
       failed.push(`${chatId}: ${error instanceof Error ? error.message : String(error)}`);
@@ -100,7 +115,9 @@ async function handleExportConversations(
   }
 
   if (files.length === 0) {
-    return { ok: false, error: failed[0] ?? t('panel.batchExportFailed') };
+    const errMsg = failed[0] ?? t('panel.batchExportFailed');
+    showToast(`批量导出失败：${errMsg}`, 'error');
+    return { ok: false, error: errMsg };
   }
 
   const response = await browser.runtime.sendMessage({
@@ -111,11 +128,15 @@ async function handleExportConversations(
   }) as RuntimeResponse;
 
   if (!response?.ok) {
+    showToast(`批量导出失败：${response?.error ?? t('panel.zipDownloadFailed')}`, 'error');
     return { ok: false, error: response?.error ?? t('panel.zipDownloadFailed') };
   }
 
   if (failed.length > 0) {
-    console.error('部分会话导出失败', failed);
+    showToast(`批量导出完成，${failed.length} 个会话导出失败`, 'info');
+  }
+  else {
+    showToast(`批量导出完成，共 ${chatIds.length} 个会话`, 'success');
   }
 
   return { ok: true };
@@ -125,6 +146,15 @@ async function handleExportCurrentConversation(): Promise<void> {
   try {
     const chatId = getCurrentChatId();
     const rawConversation = await fetchConversation(chatId);
+    const imageEntries: ImageFileEntry[] = [];
+
+    try {
+      await resolveImagesAsFileRefs(rawConversation, imageEntries);
+    }
+    catch {
+      showToast('图片解析失败，将以纯文本方式导出', 'info');
+    }
+
     const conversation = processConversation(rawConversation);
     const markdown = conversationToMarkdown(
       conversation,
@@ -137,21 +167,33 @@ async function handleExportCurrentConversation(): Promise<void> {
     );
 
     const title = getCurrentConversationTitle(conversation.title);
+    const files: Array<{ filename: string; content: string; data?: string }> = [];
+
+    files.push({
+      filename: buildCurrentMarkdownFilename(title, conversation.id),
+      content: markdown,
+    });
+
+    for (const img of imageEntries) {
+      files.push({ filename: img.filename, content: '', data: img.data });
+    }
+
     const response = await browser.runtime.sendMessage({
-      type: 'DOWNLOAD_MARKDOWN',
-      file: {
-        filename: buildCurrentMarkdownFilename(title, conversation.id),
-        content: markdown,
-      },
+      type: 'DOWNLOAD_ZIP',
+      filename: buildCurrentZipFilename(title, conversation.id),
+      files,
       saveAs: true,
     }) as RuntimeResponse;
 
     if (!response?.ok) {
-      console.error('导出当前会话失败', response?.error);
+      showToast(`导出失败：${response?.error || '未知错误'}`, 'error');
+    }
+    else {
+      showToast('导出成功', 'success');
     }
   }
   catch (error) {
-    console.error('导出当前会话失败', error);
+    showToast(`导出失败：${error instanceof Error ? error.message : '未知错误'}`, 'error');
   }
 }
 
