@@ -190,17 +190,25 @@ function transformContent(message: ConversationNodeMessage): string {
         ?.map((part) => {
           if (typeof part === 'string') return postProcess(part);
 
-          const partObj = part as { content_type: string; asset_pointer?: string; text?: string };
+          const partObj = part as Record<string, unknown>;
+          const content_type = partObj.content_type as string;
+          const assetPointer = partObj.asset_pointer as string | undefined;
+          const text = partObj.text as string | undefined;
 
-          if (partObj.content_type === 'image_asset_pointer') {
-            return `![image](${partObj.asset_pointer})`;
+          if (content_type === 'image_asset_pointer') {
+            return `![image](${assetPointer})`;
           }
 
-          if (partObj.content_type === 'audio_transcription') {
-            return `[${t('markdown.audioLabel')}] ${partObj.text}`;
+          if (content_type === 'audio_transcription') {
+            return `[${t('markdown.audioLabel')}] ${text}`;
           }
 
-          return t('markdown.unsupportedMultimodal', { type: partObj.content_type });
+          if (assetPointer) {
+            const name = (partObj.name || partObj.filename || partObj.file_name || 'attachment') as string;
+            return `[${name}](${assetPointer})`;
+          }
+
+          return t('markdown.unsupportedMultimodal', { type: content_type });
         })
         .filter(Boolean)
         .join('\n') ?? '';
