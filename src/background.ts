@@ -5,16 +5,18 @@ import {
   isContentScriptReadyMessage,
   isDownloadMessage,
   isNamedTextFile,
+  isNamedZipEntry,
   isRequestConversationListMessage,
   isRequestExportConversationsMessage,
   type ConversationListResponse,
   type RequestConversationListMessage,
   type RuntimeResponse,
 } from './shared/messages';
-import { buildZipBlob } from './shared/zip';
+import { buildZipBlobFromEntries } from './shared/zip';
+import type { NamedZipEntry } from './shared/files';
 
 const MAX_ZIP_FILES = 100;
-const MAX_TEXT_BYTES = 2 * 1024 * 1024;
+const MAX_TEXT_BYTES = 8 * 1024 * 1024;
 const MAX_ZIP_TOTAL_BYTES = 12 * 1024 * 1024;
 const CHATGPT_TAB_URL_PATTERNS = [
   'https://chatgpt.com/*',
@@ -63,11 +65,11 @@ browser.runtime.onMessage.addListener((message: unknown, sender: browser.Runtime
       return { ok: true };
     }
 
-    if (!Array.isArray(message.files) || message.files.some(file => !isNamedTextFile(file))) {
+    if (!Array.isArray(message.files) || message.files.some(file => !isNamedZipEntry(file))) {
       throw new Error(t('background.invalidZipParams'));
     }
 
-    void downloadZipFile(message.filename, message.files, message.saveAs);
+    void downloadZipFile(message.filename, message.files as NamedZipEntry[], message.saveAs);
     return { ok: true };
   }
   catch (error) {
@@ -225,7 +227,7 @@ async function downloadTextFile(
 
 async function downloadZipFile(
   filename: string,
-  files: Array<{ filename: string; content: string }>,
+  files: NamedZipEntry[],
   saveAs = true,
 ): Promise<void> {
   if (files.length === 0) {
@@ -239,16 +241,21 @@ async function downloadZipFile(
   let totalBytes = 0;
 
   for (const file of files) {
-    const size = new TextEncoder().encode(file.content).length;
-    totalBytes += size;
-    ensureTextSize(file.content, MAX_TEXT_BYTES, t('background.fileTooLargeNested', { filename: file.filename }));
+    if (file.data) {
+      totalBytes += estimateBase64Size(file.data);
+    }
+    else {
+      const size = new TextEncoder().encode(file.content).length;
+      totalBytes += size;
+      ensureTextSize(file.content, MAX_TEXT_BYTES, t('background.fileTooLargeNested', { filename: file.filename }));
+    }
   }
 
   if (totalBytes > MAX_ZIP_TOTAL_BYTES) {
     throw new Error(t('background.contentTooLarge'));
   }
 
-  const blob = buildZipBlob(dedupeNamedFiles(files));
+  const blob = buildZipBlobFromEntries(dedupeNamedFiles(files));
 
   await downloadBlob(blob, filename, saveAs);
 }
@@ -289,6 +296,13 @@ function ensureTextSize(content: string, maxBytes: number, message: string): voi
   if (bytes > maxBytes) {
     throw new Error(message);
   }
+}
+
+function estimateBase64Size(base64: string): number {
+  const comma = base64.indexOf(',');
+  const data = comma >= 0 ? base64.slice(comma + 1) : base64;
+
+  return Math.ceil(data.length * 0.75);
 }
 
 async function blobToDataUrl(blob: Blob): Promise<string> {
