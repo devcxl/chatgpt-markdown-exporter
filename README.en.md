@@ -10,7 +10,7 @@
 [![CI](https://github.com/devcxl/chatgpt-markdown-exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/devcxl/chatgpt-markdown-exporter/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/github/package-json/v/devcxl/chatgpt-markdown-exporter)](https://github.com/devcxl/chatgpt-markdown-exporter/releases)
 [![License](https://img.shields.io/github/license/devcxl/chatgpt-markdown-exporter)](./LICENSE)
-[![Chrome](https://img.shields.io/badge/Chrome-MV3-blue?logo=googlechrome)](https://developer.chrome.com/docs/extensions/mv3/intro/)
+[![Chrome Web Store](https://img.shields.io/badge/Chrome-Web%20Store-blue?logo=googlechrome)](https://chromewebstore.google.com/detail/chatgpt-markdown-exporter/dmgehjjgabifepdkoilhaokaojohfbpm)
 [![Firefox Add-on](https://img.shields.io/badge/Firefox-Add--on-orange?logo=firefoxbrowser)](https://addons.mozilla.org/zh-CN/firefox/addon/chatgpt-markdown-exporter1/)
 
 Browser extension that exports ChatGPT conversations to Markdown files. Supports Chrome and Firefox.
