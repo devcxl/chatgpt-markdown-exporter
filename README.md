@@ -30,9 +30,9 @@
 
 ## 安装
 
-**Chrome Web Store**
+**Chrome Web Store：** [点击安装](https://chromewebstore.google.com/detail/chatgpt-markdown-exporter/dmgehjjgabifepdkoilhaokaojohfbpm)
 
-> 暂未上架 Chrome 商店，可通过以下方式手动安装。
+<a href="https://chromewebstore.google.com/detail/chatgpt-markdown-exporter/dmgehjjgabifepdkoilhaokaojohfbpm"><img src="https://storage.googleapis.com/web-dev-uploads/image/WlD8wC6g8khYWPJUsQceQkhXSlv1/iNEddTyWiMfLSwFD6qGq.png" height="60" alt="Chrome Web Store"></a>
 
 ### Chrome / Edge / Arc 等 Chromium 浏览器
 
