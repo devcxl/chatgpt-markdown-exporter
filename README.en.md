@@ -31,16 +31,17 @@ Browser extension that exports ChatGPT conversations to Markdown files. Supports
 
 ## Installation
 
-**Chrome Web Store**
+**Chrome Web Store：** [Install from store](https://chromewebstore.google.com/detail/chatgpt-markdown-exporter/dmgehjjgabifepdkoilhaokaojohfbpm)
 
-> Not yet listed on Chrome Web Store. Manual installation available below.
+<a href="https://chromewebstore.google.com/detail/chatgpt-markdown-exporter/dmgehjjgabifepdkoilhaokaojohfbpm"><img src="https://storage.googleapis.com/web-dev-uploads/image/WlD8wC6g8khYWPJUsQceQkhXSlv1/iNEddTyWiMfLSwFD6qGq.png" height="60" alt="Chrome Web Store"></a>
 
 ### Chrome / Edge / Arc and other Chromium browsers
 
-1. Download `*-chrome.zip` from [Releases](https://github.com/devcxl/chatgpt-markdown-exporter/releases)
-2. Extract to a local directory
-3. Open `chrome://extensions` and enable **Developer mode**
-4. Click **Load unpacked** and select the extracted directory
+Or download `*-chrome.zip` from [Releases](https://github.com/devcxl/chatgpt-markdown-exporter/releases) for manual installation:
+
+1. Extract to a local directory
+2. Open `chrome://extensions` and enable **Developer mode**
+3. Click **Load unpacked** and select the extracted directory
 
 ### Firefox
 
