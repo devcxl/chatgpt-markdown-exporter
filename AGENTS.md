@@ -67,7 +67,6 @@ Tag `v*` triggers `.github/workflows/release.yml`: update versions → build →
 
 ## Extension constraints
 
-- `storage` permission available for extension state
 - `downloads` + `scripting` permissions
 - Host permissions: `chatgpt.com`, `chat.openai.com`
 - Content script runs at `document_idle`
