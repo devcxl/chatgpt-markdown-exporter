@@ -4,52 +4,61 @@
 
 | Command | Purpose |
 |---|---|
-| `pnpm dev` | Watch mode build (Vite programmatic, 3 entrypoints) |
-| `pnpm build` | Production build → `dist/` |
+| `pnpm dev` | WXT dev server (HMR) |
+| `pnpm dev:firefox` | WXT dev server (Firefox) |
+| `pnpm build` | Production build → `.output/` |
+| `pnpm build:firefox` | Production build (Firefox) |
+| `pnpm zip` | Build + Chrome `.zip` |
+| `pnpm zip:firefox` | Build + Firefox `.zip` |
+| `pnpm zip:all` | Build + package Chrome + Firefox |
 | `pnpm typecheck` | `tsc --noEmit` (strict, noUnusedLocals, noUnusedParameters) |
 | `pnpm lint` | ESLint flat config: 2-space, single quotes, semicolons |
 | `pnpm lint:fix` | Auto-fix lint |
 | `pnpm test` | Vitest (single test file: `src/shared/zip-core.test.ts`) |
-| `pnpm package:all` | `build` then package Chrome + Firefox `.zip` at repo root |
-| `pnpm package:chrome` / `pnpm package:firefox` | Single-target package |
 
 ## Build
 
-Custom Vite build via `scripts/build.mjs` — NOT a standard `vite.config.ts`. Builds 3 entrypoints sequentially:
+WXT framework — entrypoints are auto-detected from `src/entrypoints/`:
 
-1. `src/background.ts` → `dist/background.js`
-2. `src/content/index.ts` → `dist/content/index.js`
-3. `src/popup/index.ts` → `dist/popup/index.js` (also copies `public/` HTML/icons + `manifest.json`)
+1. `src/entrypoints/background.ts` → Service Worker
+2. `src/entrypoints/chatgpt.content/` → Content script (chatgpt.com pages)
+3. `src/entrypoints/popup/` → Extension popup
 
-## Package
-
-`scripts/package.mjs` imports `src/shared/zip-core.ts` — **requires** `node --experimental-strip-types` (already set in scripts in `package.json`).
+Output: `.output/{browser}-mv{2,3}/`
 
 ## Loading the extension
 
-- **Chrome**: `chrome://extensions` → Load unpacked → select `dist/`
-- **Firefox**: `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → select `dist/manifest.json`
+- **Chrome**: `chrome://extensions` → Load unpacked → select `.output/chrome-mv3/`
+- **Firefox**: `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → select `.output/firefox-mv2/manifest.json`
 
 ## Key architecture
 
 ```
 src/
-├── background.ts              # Service Worker: message routing, download logic
-├── content/                   # Content script (injected into chatgpt.com pages)
-│   ├── index.ts               # Entry: mount export button, handle messages
-│   ├── api.ts                 # ChatGPT backend API calls
-│   ├── process-conversation.ts # Raw API data → structured model
-│   ├── current-export-button.ts
-│   └── panel.ts               # Batch export floating panel
-├── popup/index.ts             # Extension popup: conversation list + batch export
-├── markdown/conversation-to-markdown.ts  # Structured data → Markdown
-├── shared/                    # Cross-context utilities
-│   ├── messages.ts            # Message type definitions + type guards
-│   ├── files.ts               # Filename sanitization + dedup
-│   ├── zip-core.ts            # Dependency-free ZIP store-only format (shared by build & runtime)
-│   ├── zip.ts                 # Browser wrapper (Blob output)
-│   └── zip-core.test.ts       # Vitest tests
-└── types.d.ts                 # Chrome/Firefox extension API type declarations
+├── wxt.config.ts                # WXT configuration
+├── entrypoints/                 # WXT entrypoints
+│   ├── background.ts            # Service Worker: message routing, download logic
+│   ├── chatgpt.content/         # Content script (injected into chatgpt.com pages)
+│   │   ├── index.ts             # Entry: mount export button, handle messages
+│   │   ├── api.ts               # ChatGPT backend API calls
+│   │   ├── process-conversation.ts
+│   │   ├── current-export-button.ts
+│   │   ├── images.ts            # Image resolution
+│   │   ├── page.ts              # Page utilities
+│   │   └── toast.ts             # Toast notifications
+│   └── popup/                   # Extension popup
+│       ├── index.html
+│       └── index.ts
+├── markdown/
+│   └── conversation-to-markdown.ts
+├── shared/
+│   ├── messages.ts
+│   ├── files.ts
+│   ├── zip-core.ts
+│   ├── zip.ts
+│   ├── chatgpt-types.ts         # Shared ChatGPT API types
+│   └── zip-core.test.ts
+└── i18n/                        # Custom i18n (not WXT's built-in)
 ```
 
 ## CI pipeline (`.github/workflows/ci.yml`)
@@ -58,16 +67,10 @@ Order: `pnpm install` → `pnpm typecheck` → `pnpm lint` → `pnpm build` (no 
 
 ## Release flow
 
-Tag `v*` triggers `.github/workflows/release.yml`: update versions → build → package → GitHub Release → optional AMO submission via `web-ext`.
-
-## Browser-specific manifest differences
-
-- **Firefox**: `background.service_worker` + `"type": "module"` → must be rewritten to `background.scripts: ["background.js"]` (done in `scripts/package.mjs`)
-- **Chrome**: `browser_specific_settings` block is deleted before packaging
+Tag `v*` triggers `.github/workflows/release.yml`: update package.json version → build → zip → GitHub Release → optional AMO submission via `web-ext sign`.
 
 ## Extension constraints
 
 - `downloads` + `scripting` permissions
 - Host permissions: `chatgpt.com`, `chat.openai.com`
 - Content script runs at `document_idle`
-- Service worker type: `module`
