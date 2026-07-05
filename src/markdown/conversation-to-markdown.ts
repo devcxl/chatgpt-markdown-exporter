@@ -4,7 +4,7 @@ import type {
   ContentReference,
   ConversationNodeMessage,
   ConversationResult,
-} from '../content/types';
+} from '../shared/chatgpt-types';
 
 export type MarkdownOptions = {
   includeFrontmatter: boolean;
