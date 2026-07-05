@@ -30,13 +30,6 @@ jobs:
 
           node -e "
             const fs = require('node:fs');
-
-            const manifestPath = 'manifest.json';
-            const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-            manifest.version = '$VERSION';
-            fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
-            console.log('manifest.json version updated to', '$VERSION');
-
             const pkgPath = 'package.json';
             const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
             pkg.version = '$VERSION';
@@ -50,7 +43,7 @@ jobs:
 
       - run: pnpm lint
 
-      - run: pnpm package:all
+      - run: pnpm zip:all
 
       - name: Check AMO secrets
         id: amo-secrets
@@ -64,35 +57,16 @@ jobs:
             echo "available=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Extract Firefox extension for AMO
-        if: ${{ steps.amo-secrets.outputs.available == 'true' }}
-        run: |
-          FIREFOX_ZIP=$(ls chatgpt-markdown-exporter-*-firefox.zip)
-          mkdir -p firefox-ext
-          unzip -q "$FIREFOX_ZIP" -d firefox-ext
-
-      - name: Prepare source archive for AMO
-        if: ${{ steps.amo-secrets.outputs.available == 'true' }}
-        run: |
-          mkdir -p web-ext-source
-          zip -r web-ext-source/source.zip . \
-            -x ".git/*" \
-            -x "node_modules/*" \
-            -x "dist/*" \
-            -x "*.zip" \
-            -x "web-ext-source/*"
-
       - name: Submit to Firefox Add-ons (AMO)
         if: ${{ steps.amo-secrets.outputs.available == 'true' }}
         env:
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
           AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
-          pnpm exec web-ext sign \
-            --source-dir firefox-ext \
+          npx web-ext sign \
+            --source-dir .output/firefox-mv3 \
             --channel=listed \
-            --amo-metadata amo-metadata.json \
-            --upload-source-code web-ext-source/source.zip \
+            --upload-source-code .output/chatgpt-markdown-exporter-*-sources.zip \
             --api-key "$AMO_JWT_ISSUER" \
             --api-secret "$AMO_JWT_SECRET"
 
@@ -100,6 +74,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            chatgpt-markdown-exporter-*-chrome.zip
-            chatgpt-markdown-exporter-*-firefox.zip
+            .output/chatgpt-markdown-exporter-*-chrome.zip
+            .output/chatgpt-markdown-exporter-*-firefox.zip
           generate_release_notes: true
