@@ -1,7 +1,7 @@
 import type { SupportedLocale } from './types';
 import { messages } from './locales';
 
-let currentLocale: SupportedLocale = detectLocale();
+const currentLocale: SupportedLocale = detectLocale();
 
 export function t(key: string, params?: Record<string, string | number>): string {
   const msg = messages[currentLocale]?.[key] ?? messages['en'][key];
@@ -17,20 +17,8 @@ export function t(key: string, params?: Record<string, string | number>): string
   return msg;
 }
 
-export function setLocale(locale: SupportedLocale): void {
-  currentLocale = locale;
-}
-
-export function getLocale(): SupportedLocale {
-  return currentLocale;
-}
-
 export function getDateLocale(): string {
   return currentLocale === 'zh-CN' ? 'zh-CN' : 'en-US';
-}
-
-export function localeFromNavigator(): SupportedLocale {
-  return detectLocale();
 }
 
 export function i18nPopulate(root: ParentNode): void {

@@ -1,5 +1,5 @@
 import { fetchApi } from './api';
-import type { ApiConversation, ConversationNode } from './types';
+import type { ApiConversation, ConversationNode } from '../../shared/chatgpt-types';
 
 const MIME_TO_EXT: Record<string, string> = {
   'image/png': 'png',
@@ -107,7 +107,7 @@ function isMultimodalText(content: unknown): content is { parts: Array<string | 
     && Array.isArray((content as Record<string, unknown>).parts);
 }
 
-export function scanConversationPointers(conversation: ApiConversation): string[] {
+function scanConversationPointers(conversation: ApiConversation): string[] {
   const pointers = new Set<string>();
 
   traverseAndReplace(conversation, (msg) => {
@@ -134,41 +134,6 @@ export function scanConversationPointers(conversation: ApiConversation): string[
   });
 
   return [...pointers];
-}
-
-export async function resolveImagesAsDataUrls(
-  conversation: ApiConversation,
-): Promise<void> {
-  const pointers = scanConversationPointers(conversation);
-
-  if (pointers.length === 0) return;
-
-  const results = await downloadImages(pointers);
-
-  traverseAndReplace(conversation, (msg) => {
-    if (isMultimodalText(msg.content)) {
-      for (const part of msg.content.parts) {
-        if (typeof part === 'string') continue;
-
-        const p = part as Record<string, unknown>;
-        const ptr = p.asset_pointer as string | undefined;
-
-        if (ptr) {
-          const resolved = results.get(ptr);
-          if (resolved) p.asset_pointer = resolved.base64;
-        }
-      }
-    }
-
-    if (msg.metadata?.aggregate_result?.messages) {
-      for (const img of msg.metadata.aggregate_result.messages) {
-        if (img.message_type === 'image') {
-          const resolved = results.get(img.image_url);
-          if (resolved) img.image_url = resolved.base64;
-        }
-      }
-    }
-  });
 }
 
 export async function resolveImagesAsFileRefs(

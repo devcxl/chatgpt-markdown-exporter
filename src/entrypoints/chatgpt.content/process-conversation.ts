@@ -3,7 +3,7 @@ import type {
   ApiConversation,
   ConversationNode,
   ConversationResult,
-} from './types';
+} from '../../shared/chatgpt-types';
 
 const MODEL_MAPPING: Record<string, string> = {
   'text-davinci-002-render-sha': 'GPT-3.5',

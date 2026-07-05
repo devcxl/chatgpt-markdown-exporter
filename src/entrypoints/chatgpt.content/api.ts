@@ -4,7 +4,7 @@ import type {
   ApiConversation,
   ApiConversationItem,
   ApiConversations,
-} from './types';
+} from '../../shared/chatgpt-types';
 
 const API_MAPPING: Record<string, string> = {
   'https://chat.openai.com': 'https://chat.openai.com/backend-api',

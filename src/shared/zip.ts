@@ -1,11 +1,11 @@
 import { buildZipBuffer, type ZipFileEntry } from './zip-core';
 
-export type ZipTextFile = {
+type ZipTextFile = {
   filename: string;
   content: string;
 };
 
-export type ZipEntry = {
+type ZipEntry = {
   filename: string;
   content: string; // 文本内容（.md 文件）
   data?: string; // base64 编码的二进制数据（图片等）
