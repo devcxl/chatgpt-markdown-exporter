@@ -29,6 +29,7 @@
     "@stylistic/eslint-plugin": "^4.2.0",
     "@types/node": "^20.11.20",
     "eslint": "^9.15.0",
+    "publish-browser-extension": "^5.1.0",
     "typescript": "^5.5.2",
     "typescript-eslint": "^8.16.0",
     "vitest": "^3.2.4",
