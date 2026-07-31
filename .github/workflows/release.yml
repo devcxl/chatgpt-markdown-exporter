@@ -88,7 +88,7 @@ jobs:
           AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
           npx web-ext sign \
-            --source-dir .output/firefox-mv3 \
+            --source-dir .output/firefox-mv2 \
             --channel=listed \
             --upload-source-code .output/chatgpt-markdown-exporter-*-sources.zip \
             --api-key "$AMO_JWT_ISSUER" \
