@@ -3,16 +3,15 @@ import { defineConfig } from 'wxt';
 export default defineConfig({
   srcDir: 'src',
   manifest: {
-    name: '__MSG_extName__',
-    description: '__MSG_extDescription__',
-    default_locale: 'en',
+    name: 'ChatGPT Markdown Exporter',
+    description: 'Export ChatGPT conversations to Markdown files',
     permissions: ['activeTab', 'downloads', 'scripting'],
     host_permissions: [
       'https://chatgpt.com/*',
       'https://chat.openai.com/*',
     ],
     action: {
-      default_title: '__MSG_extDefaultTitle__',
+      default_title: 'ChatGPT Markdown Exporter',
     },
     icons: {
       16: '/icons/icon-16.png',
