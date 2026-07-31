@@ -61,7 +61,7 @@ countLines(text) = text.trim() 为空 ? 0 : text.trim().split('\n').length
 | `好的，let me check` | 5 |
 | `123 456` | 2 |
 | `Visit https://example.com now` | 3 |
-| `` `const x = 1;` `` | 3 |
+| `` `const x = 1;` `` | 4 | `const / x / = / 1;` 共 4 段 |
 | `''` / `'   '` | 0 |
 
 `countLines`：

@@ -46,7 +46,7 @@ word_count = hanCount + wordCount
 | 混合中文逗号 | `好的，let me check` | 5 | 2 汉字 + 3 单词 |
 | 数字 | `123 456` | 2 | 数字序列按英文单词规则 |
 | URL | `Visit https://example.com now` | 3 | 无空格的连续串计 1 个单词 |
-| 代码块 | `` `const x = 1;` `` | 3 | 代码内容计入，不做剥离 |
+| 代码块 | `` `const x = 1;` `` | 4 | 代码内容计入，不做剥离（`const / x / = / 1;` 共 4 段） |
 | 空串 / 纯空白 | `""` / `"   "` | 0 | — |
 
 **明确不做的处理（记录在案）：**
@@ -169,7 +169,7 @@ export function conversationToMarkdown(...): string {
 - 混合 `Hello世界` → 3；`好的，let me check` → 5
 - 英文标点 `Hello, world!` → 2
 - 数字 `123 456` → 2；URL `Visit https://example.com now` → 3
-- 代码块内容 `const x = 1;` → 3
+- 代码块内容 `const x = 1;` → 4（`const / x / = / 1;` 共 4 段）
 - 空串 / 纯空白 → 0
 
 `countLines`：
