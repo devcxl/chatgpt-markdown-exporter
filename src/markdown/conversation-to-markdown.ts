@@ -1,4 +1,5 @@
 import { t, getDateLocale } from '../i18n';
+import { countLines, countWords } from './stats';
 import type {
   Citation,
   ContentReference,
@@ -25,6 +26,9 @@ export function conversationToMarkdown(
   const source = metadata.sourceUrl ?? `${location.origin}/c/${conversation.id}`;
   const exportedAt = metadata.exportedAt ?? new Date().toISOString();
 
+  const { content, messageCount } = renderContent(conversation, options);
+  const normalizedContent = normalizeLineBreaks(content);
+
   const frontmatter = options.includeFrontmatter
     ? [
         '---',
@@ -36,12 +40,23 @@ export function conversationToMarkdown(
         `update_time: ${yamlString(toIso(conversation.updateTime))}`,
         `exported_at: ${yamlString(exportedAt)}`,
         `author: ${yamlString(t('markdown.authorChatGPT'))}`,
+        `word_count: ${countWords(normalizedContent)}`,
+        `line_count: ${countLines(normalizedContent)}`,
+        `message_count: ${messageCount}`,
         '---',
         '',
       ].join('\n')
     : '';
 
-  const content = conversation.conversationNodes
+  return `${frontmatter}# ${conversation.title}\n\n${normalizedContent}\n`;
+}
+
+function renderContent(
+  conversation: ConversationResult,
+  options: MarkdownOptions,
+): { content: string; messageCount: number } {
+  let messageCount = 0;
+  const blocks = conversation.conversationNodes
     .map((node) => {
       const message = node.message;
       if (!message?.content) return null;
@@ -55,14 +70,12 @@ export function conversationToMarkdown(
 
       if (!body.trim()) return null;
 
+      messageCount += 1;
+
       return renderMessageBlock(author, timestamp, body.trim());
     })
-    .filter(Boolean)
-    .join('\n\n');
-
-  return normalizeLineBreaks(
-    `${frontmatter}# ${conversation.title}\n\n${content}\n`,
-  );
+    .filter(Boolean);
+  return { content: blocks.join('\n\n'), messageCount };
 }
 
 function shouldSkipMessage(message: ConversationNodeMessage): boolean {

@@ -63,6 +63,14 @@ describe('countWords', () => {
   it('returns 0 for CJK punctuation only', () => {
     expect(countWords('。！？，')).toBe(0);
   });
+
+  it('treats CJK punctuation as a separator between han and english', () => {
+    expect(countWords('你好。Hello')).toBe(3);
+  });
+
+  it('counts extension-B han characters', () => {
+    expect(countWords('𠀀𠀁')).toBe(2);
+  });
 });
 
 /* ------------------------------------------------------------------ */
