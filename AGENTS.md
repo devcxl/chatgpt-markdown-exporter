@@ -95,10 +95,43 @@ Draft-first 两阶段流程（`.github/workflows/release.yml`）：
 - 草稿 release 不会触发 release 事件，因此「发布草稿」天然成为上架前的人工闸门；
   仅推标签不会向商店提交任何内容
 - `submit` 任务在 `published` 事件上运行，靠 release 事件重新构建产物并提交
-- Chrome 提交需要 `CHROME_EXTENSION_ID` / `CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL` /
-  `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY` 三个 secret；AMO 需要 `AMO_JWT_ISSUER` / `AMO_JWT_SECRET`。
-  缺失时对应步骤自动跳过（不会报错）
+- Chrome 提交需要 4 个 secret（缺任一则自动跳过，不报错），配置步骤见下节
+- AMO 提交需要 `AMO_JWT_ISSUER` / `AMO_JWT_SECRET`
 - tag 与 `package.json` 版本必须一致（先改版本再打标签），`draft` 任务会硬校验
+
+### Chrome Web Store 自动发布配置
+
+需在 GitHub 仓库配置 4 个 secret：
+
+| Secret | 说明 |
+|---|---|
+| `CHROME_EXTENSION_ID` | 扩展 ID（商店链接中 32 位小写串） |
+| `CHROME_PUBLISHER_ID` | 发布者 UUID（v2 API 路径 `publishers/{id}/items/{id}` 必需） |
+| `CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL` | 服务账号邮箱 |
+| `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY` | 服务账号私钥（**base64**，见下） |
+
+获取方式：
+
+1. Google Cloud Console 启用 **Chrome Web Store API**
+2. 创建服务账号（无需授予 IAM 权限），生成 **JSON 密钥**并下载
+3. CWS 开发者后台 → **Account** → 添加服务账号邮箱（漏做会 403）
+4. 后台右上角选择发布者，URL `.../devconsole/<PUBLISHER_ID>` 中即为 Publisher ID
+
+配置命令：
+
+```bash
+gh secret set CHROME_EXTENSION_ID --body "<32 位扩展 ID>"
+gh secret set CHROME_PUBLISHER_ID --body "<发布者 UUID>"
+gh secret set CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL --body "<服务账号邮箱>"
+base64 -w0 <密钥.json> | gh secret set CHROME_SERVICE_ACCOUNT_PRIVATE_KEY
+```
+
+**私钥必须 base64**：JSON 密钥文件中的 `\n` 是字面量转义，直接作为环境变量传递会得到
+不含换行的 PEM，签名时报 `DECODER routines::unsupported`（已实测）。
+workflow 会兼容未编码的旧格式（以 `BEGIN` 开头时直接使用）。
+
+提交行为：使用 `STAGED_PUBLISH`，即提交后**不自动上架**，需在开发者后台手动发布。
+Chrome 不支持通过 API 写商店文案（listing），详细说明只能手动填，见 `docs/store-listing.md`。
 
 ## Store metadata（商店文案）
 

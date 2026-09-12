@@ -96,25 +96,40 @@ jobs:
         id: chrome-secrets
         env:
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
           CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
           CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
         run: |
-          if [ -n "$CHROME_EXTENSION_ID" ] && [ -n "$CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL" ] && [ -n "$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY" ]; then
+          if [ -n "$CHROME_EXTENSION_ID" ] && [ -n "$CHROME_PUBLISHER_ID" ] && [ -n "$CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL" ] && [ -n "$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY" ]; then
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Chrome 提交已跳过：缺少 CHROME_EXTENSION_ID / CHROME_PUBLISHER_ID / CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL / CHROME_SERVICE_ACCOUNT_PRIVATE_KEY 中的一项或多项"
           fi
 
       - name: Submit to Chrome Web Store
         if: ${{ steps.chrome-secrets.outputs.available == 'true' }}
         env:
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
           CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
-          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
         run: |
+          # 私钥以 base64 存储：JSON 密钥文件里的 "\\n" 是字面量转义，
+          # 直接作为环境变量传入会得到不含换行的 PEM，签名时报
+          # "DECODER routines::unsupported"；base64 解码可完整保留换行。
+          # 兼容未编码的旧格式：以 BEGIN 开头时直接使用。
+          if printf '%s' "$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64" | grep -q 'BEGIN.*PRIVATE KEY'; then
+            CHROME_SERVICE_ACCOUNT_PRIVATE_KEY="$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64"
+          else
+            CHROME_SERVICE_ACCOUNT_PRIVATE_KEY="$(printf '%s' "$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64" | base64 -d)"
+          fi
+          export CHROME_SERVICE_ACCOUNT_PRIVATE_KEY
+
           npx publish-extension \
             --chrome-zip ".output/chatgpt-markdown-exporter-${VERSION}-chrome.zip" \
             --chrome-api-version v2 \
+            --chrome-publisher-id "$CHROME_PUBLISHER_ID" \
             --chrome-publish-type STAGED_PUBLISH
 
       - name: Check AMO secrets
