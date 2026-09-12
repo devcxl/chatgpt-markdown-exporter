@@ -21,6 +21,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: 3.2.4
         version: 3.2.4(vitest@3.2.4(@types/node@20.19.39)(jiti@2.7.0)(jsdom@30.0.1))
+      '@webext-core/fake-browser':
+        specifier: 1.5.2
+        version: 1.5.2
       eslint:
         specifier: ^9.15.0
         version: 9.39.4(jiti@2.7.0)
