@@ -117,18 +117,25 @@ Draft-first 两阶段流程（`.github/workflows/release.yml`）：
 3. CWS 开发者后台 → **Account** → 添加服务账号邮箱（漏做会 403）
 4. 后台右上角选择发布者，URL `.../devconsole/<PUBLISHER_ID>` 中即为 Publisher ID
 
-配置命令：
+配置命令（推荐，从 GCP 下载的 JSON 密钥文件直接提取）：
 
 ```bash
+KEY=~/Downloads/<项目ID>-<key-id>.json   # GCP 下载的服务账号密钥
+
 gh secret set CHROME_EXTENSION_ID --body "<32 位扩展 ID>"
 gh secret set CHROME_PUBLISHER_ID --body "<发布者 UUID>"
-gh secret set CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL --body "<服务账号邮箱>"
-base64 -w0 <密钥.json> | gh secret set CHROME_SERVICE_ACCOUNT_PRIVATE_KEY
+jq -r .client_email "$KEY" | gh secret set CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL
+jq -r .private_key  "$KEY" | gh secret set CHROME_SERVICE_ACCOUNT_PRIVATE_KEY
 ```
 
-**私钥必须 base64**：JSON 密钥文件中的 `\n` 是字面量转义，直接作为环境变量传递会得到
-不含换行的 PEM，签名时报 `DECODER routines::unsupported`（已实测）。
-workflow 会兼容未编码的旧格式（以 `BEGIN` 开头时直接使用）。
+`jq -r` 会把 JSON 中的字面量 `\n` 还原为真实换行，得到的 PEM 可直接用于签名（已实测）。
+`gh secret set` 不带 `--body` 时从 stdin 读取，完整保留多行内容。
+
+**为什么不能直接存整个 JSON**：`private_key` 在 JSON 文件里是字面量 `\n`，
+直接当环境变量传入会得到不含换行的 PEM，签名时报 `DECODER routines::unsupported`
+（已实测）。又因为 workfow 里的 base64 分支只负责解码，
+传 base64(整个JSON) 会得到 JSON 文本而非 PEM，同样失败。
+所以只传私钥字符串本身，不做 base64 包装。
 
 提交行为：使用 `STAGED_PUBLISH`，即提交后**不自动上架**，需在开发者后台手动发布。
 Chrome 不支持通过 API 写商店文案（listing），详细说明只能手动填，见 `docs/store-listing.md`。

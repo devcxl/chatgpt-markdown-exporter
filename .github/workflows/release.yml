@@ -113,18 +113,20 @@ jobs:
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
           CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
           CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
-          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
         run: |
-          # 私钥以 base64 存储：JSON 密钥文件里的 "\\n" 是字面量转义，
-          # 直接作为环境变量传入会得到不含换行的 PEM，签名时报
-          # "DECODER routines::unsupported"；base64 解码可完整保留换行。
-          # 兼容未编码的旧格式：以 BEGIN 开头时直接使用。
-          if printf '%s' "$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64" | grep -q 'BEGIN.*PRIVATE KEY'; then
-            CHROME_SERVICE_ACCOUNT_PRIVATE_KEY="$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64"
-          else
-            CHROME_SERVICE_ACCOUNT_PRIVATE_KEY="$(printf '%s' "$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64" | base64 -d)"
+          # 私钥必须是带真实换行的 PEM。配置方式见 AGENTS.md：
+          #   jq -r .private_key key.json | gh secret set CHROME_SERVICE_ACCOUNT_PRIVATE_KEY
+          # 常见错误是直接拷贝 JSON 里的值（\n 为字面量）或传 base64(整个 JSON)，
+          # 两者都会在签名时报 "DECODER routines::unsupported"，此处提前拦截。
+          if ! printf '%s' "$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY" | grep -q '^-----BEGIN .*PRIVATE KEY-----'; then
+            echo "::error::CHROME_SERVICE_ACCOUNT_PRIVATE_KEY 不是 PEM（应以 -----BEGIN PRIVATE KEY----- 开头）。请用 jq -r .private_key 重新配置。"
+            exit 1
           fi
-          export CHROME_SERVICE_ACCOUNT_PRIVATE_KEY
+          if [ "$(printf '%s' "$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY" | wc -l)" -lt 2 ]; then
+            echo "::error::CHROME_SERVICE_ACCOUNT_PRIVATE_KEY 只有单行，换行已丢失（JSON 里的 \\n 是字面量）。请用 jq -r .private_key 重新配置。"
+            exit 1
+          fi
 
           npx publish-extension \
             --chrome-zip ".output/chatgpt-markdown-exporter-${VERSION}-chrome.zip" \
