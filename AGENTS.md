@@ -71,6 +71,7 @@ src/
 ## CI pipeline (`.github/workflows/ci.yml`)
 
 Order: `pnpm install` → `pnpm typecheck` → `pnpm lint` → `pnpm build` (no tests run in CI).
+
 ## Testing
 
 - 测试文件与被测模块同目录、同名 `.test.ts`；`test/setup.ts` 注入 WXT 自动导入的 stub（`defineBackground` / `defineContentScript`）与 `@webext-core/fake-browser` 的 `browser`
