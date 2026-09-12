@@ -36,6 +36,8 @@ const frontmatterInput = el<HTMLInputElement>('[data-role=\'frontmatter\']');
 const timestampsInput = el<HTMLInputElement>('[data-role=\'timestamps\']');
 const timestamp24hInput = el<HTMLInputElement>('[data-role=\'timestamp24h\']');
 
+const exportLabelEl = el<HTMLSpanElement>('[data-role=\'export-selected-label\']');
+
 refreshBtn.addEventListener('click', () => {
   void loadConversations();
 });
@@ -71,6 +73,8 @@ listEl.addEventListener('change', (event) => {
   else {
     state.selectedIds.delete(chatId);
   }
+
+  updateControls();
 });
 
 i18nPopulate(document.body);
@@ -258,6 +262,8 @@ function setAllSelections(checked: boolean): void {
       state.selectedIds.delete(chatId);
     }
   }
+
+  updateControls();
 }
 
 function getSelectedIds(): string[] {
@@ -323,6 +329,11 @@ function updateControls(): void {
   selectAllBtn.disabled = state.isBusy || !ready;
   clearSelectionBtn.disabled = state.isBusy || !ready;
   exportBtn.disabled = state.isBusy || !ready;
+
+  // 只选 1 个会话时，无图片等二进制资源会直接下载 .md，文案不能再声称导出 ZIP
+  const single = state.selectedIds.size === 1;
+
+  exportLabelEl.textContent = t(single ? 'common.exportSelectedSingle' : 'common.exportSelectedZip');
 }
 
 function setStatus(text: string, tone: 'muted' | 'success' | 'warning' | 'error' = 'muted'): void {

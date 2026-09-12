@@ -57,7 +57,8 @@
 
 1. 打开 [chatgpt.com](https://chatgpt.com)
 2. 点击页面顶部的 **「导出 Markdown」** 按钮导出当前对话，或点击扩展图标打开批量导出面板
-3. 导出的 `.md` 文件可直接用任何 Markdown 编辑器或笔记应用（Obsidian、Notion、Typora 等）打开
+3. 只有单个会话且不含图片等附件时，直接下载 `.md` 文件；包含附件或一次导出多个会话时打包为 `.zip`
+4. 导出的 `.md` 文件可直接用任何 Markdown 编辑器或笔记应用（Obsidian、Notion、Typora 等）打开
 
 ## 技术架构
 

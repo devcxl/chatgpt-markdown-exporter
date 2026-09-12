@@ -59,7 +59,8 @@ Or download `*-firefox.zip` from [Releases](https://github.com/devcxl/chatgpt-ma
 
 1. Open [chatgpt.com](https://chatgpt.com)
 2. Click the **"Export Markdown"** button at the top of the page to export the current conversation, or click the extension icon to open the batch export panel
-3. The exported `.md` file can be opened with any Markdown editor or note-taking app (Obsidian, Notion, Typora, etc.)
+3. A single conversation without images or other attachments downloads as a plain `.md` file; exports containing attachments or multiple conversations are packed into a `.zip`
+4. The exported `.md` file can be opened with any Markdown editor or note-taking app (Obsidian, Notion, Typora, etc.)
 
 ## Architecture
 

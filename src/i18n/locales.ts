@@ -14,6 +14,7 @@ export const messages: I18nMessages = {
     'common.selectAll': '全选',
     'common.clearSelection': '清空',
     'common.exportSelectedZip': '导出所选为 ZIP',
+    'common.exportSelectedSingle': '导出所选会话',
     'common.itemsCount': '会话列表（{count} 条）',
     'common.loadMore': '加载更多…',
 
@@ -45,7 +46,6 @@ export const messages: I18nMessages = {
     'panel.currentExported': '当前会话已导出。',
     'panel.downloadFailed': '下载失败。',
     'panel.batchExportFailed': '批量导出失败。',
-    'panel.zipDownloadFailed': 'ZIP 下载失败。',
     'panel.loadingList': '正在加载最近 {count} 条会话…',
     'panel.loadingProgress': '已加载 {count} 条会话…',
     'panel.loadedCount': '会话列表已加载，共 {count} 条。',
@@ -99,6 +99,7 @@ export const messages: I18nMessages = {
     'common.selectAll': 'Select All',
     'common.clearSelection': 'Clear',
     'common.exportSelectedZip': 'Export Selected as ZIP',
+    'common.exportSelectedSingle': 'Export Selected Conversation',
     'common.itemsCount': 'Conversations ({count})',
     'common.loadMore': 'Load more…',
 
@@ -130,7 +131,6 @@ export const messages: I18nMessages = {
     'panel.currentExported': 'Current conversation exported.',
     'panel.downloadFailed': 'Download failed.',
     'panel.batchExportFailed': 'Batch export failed.',
-    'panel.zipDownloadFailed': 'ZIP download failed.',
     'panel.loadingList': 'Loading latest {count} conversations…',
     'panel.loadingProgress': 'Loaded {count} conversations…',
     'panel.loadedCount': 'Conversation list loaded: {count} items.',

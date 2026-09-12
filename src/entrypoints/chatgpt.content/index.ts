@@ -4,6 +4,7 @@ import { fetchAllConversations, fetchConversations, fetchConversation, getCurren
 import { processConversation } from './process-conversation';
 import { conversationToMarkdown, type MarkdownOptions } from '../../markdown/conversation-to-markdown';
 import { buildCurrentMarkdownFilename, buildCurrentZipFilename, buildMarkdownFilename, buildZipFilename } from '../../shared/files';
+import { buildDownloadMessage } from '../../shared/download';
 import {
   isPingExporterPanelMessage,
   isRequestConversationListMessage,
@@ -123,16 +124,13 @@ export default defineContentScript({
         return { ok: false, error: errMsg };
       }
 
-      const response = await browser.runtime.sendMessage({
-        type: 'DOWNLOAD_ZIP',
-        filename: buildZipFilename(),
-        files,
-        saveAs: true,
-      }) as RuntimeResponse;
+      const response = await browser.runtime.sendMessage(
+        buildDownloadMessage(files, buildZipFilename(), true),
+      ) as RuntimeResponse;
 
       if (!response?.ok) {
-        showToast(`批量导出失败：${response?.error ?? t('panel.zipDownloadFailed')}`, 'error');
-        return { ok: false, error: response?.error ?? t('panel.zipDownloadFailed') };
+        showToast(`批量导出失败：${response?.error ?? t('panel.downloadFailed')}`, 'error');
+        return { ok: false, error: response?.error ?? t('panel.downloadFailed') };
       }
 
       if (failed.length > 0) {
@@ -181,12 +179,13 @@ export default defineContentScript({
           files.push({ filename: img.filename, content: '', data: img.data });
         }
 
-        const response = await browser.runtime.sendMessage({
-          type: 'DOWNLOAD_ZIP',
-          filename: buildCurrentZipFilename(title, conversation.id),
-          files,
-          saveAs: true,
-        }) as RuntimeResponse;
+        const response = await browser.runtime.sendMessage(
+          buildDownloadMessage(
+            files,
+            buildCurrentZipFilename(title, conversation.id),
+            true,
+          ),
+        ) as RuntimeResponse;
 
         if (!response?.ok) {
           showToast(`导出失败：${response?.error || '未知错误'}`, 'error');
