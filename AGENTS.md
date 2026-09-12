@@ -94,6 +94,25 @@ Draft-first 两阶段流程（`.github/workflows/release.yml`）：
   缺失时对应步骤自动跳过（不会报错）
 - tag 与 `package.json` 版本必须一致（先改版本再打标签），`draft` 任务会硬校验
 
+## Store metadata（商店文案）
+
+商店页文案与包内 i18n 是**两套独立机制**，详细说明见 [`docs/store-listing.md`](docs/store-listing.md)：
+
+| 字段 | 来源 | 自动化 |
+|---|---|---|
+| 包内文案（扩展名/标题/界面） | `public/_locales/*/messages.json` + `src/i18n/` | 随包生效 |
+| CWS 简短说明 | `manifest.json` 的 `description` | 拖包自动填入 |
+| CWS 详细说明 | 只能后台手填 | ❌ API 不支持 |
+| AMO name/summary/description | `amo-metadata.json` | ✅ release 流程自动写入 |
+
+- 改 AMO 文案：编辑 `amo-metadata.json`（保持 `supported_locales` 与翻译字段语言键一致）
+- 改包内名称/简短说明：编辑 `public/_locales/*/messages.json`，**英文 ≤ 132 字符**（CWS manifest 硬上限）
+- `version.release_notes` 由 `scripts/prepare-amo-metadata.mjs` 从当次 GitHub Release
+  说明动态注入，**不要在 amo-metadata.json 中手写**（其中的値仅作兜底）
+- `src/store-metadata.test.ts` 校验上述约束
+- **不要尝试自动化 CWS listing**：写能力仅存于已废弃的 API V1.1（2026-10-15 停用），
+  V2 无任何 listing 字段
+
 ## Extension constraints
 
 - `downloads` + `scripting` permissions
