@@ -318,6 +318,12 @@ export default defineContentScript({
 
 ### 6.6 package.json 脚本
 
+> 注：本节为迁移时的初始设计。后续构建与打包命令已合并为 `build` 系列
+> （`wxt zip` 本身就同时产出解包目录与 zip，`build` 另存一份仅解包的脚本没有意义）。
+> **当前实际命令以仓库 `package.json` 为准。**
+
+迁移时的初始方案：
+
 ```json
 {
   "scripts": {
@@ -338,6 +344,32 @@ export default defineContentScript({
 }
 ```
 
+当前实际方案：
+
+```json
+{
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt zip",
+    "build:firefox": "wxt zip -b firefox",
+    "build:all": "pnpm build && pnpm build:firefox",
+    "postinstall": "wxt prepare",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src scripts",
+    "lint:fix": "eslint --fix src scripts"
+  }
+}
+```
+
+与初始设计的差异：
+
+- 采用 `wxt zip` 作为 `build`，一次产出解包目录 + zip；未保留仅解包的 `build`
+- 未采用 `wxt submit`（改用 `web-ext sign`，见 Phase 4）
+- `typecheck` 保持 `tsc --noEmit` 而非 `wxt typecheck`
+- `lint` 范围纳入 `scripts/`
 ### 6.7 tsconfig.json 调整
 
 WXT 需要扩展其生成的 tsconfig：
@@ -469,17 +501,22 @@ WXT 需要扩展其生成的 tsconfig：
 - [ ] 删除 `webextension-polyfill` 依赖
 - [ ] 可选：删除 `web-ext` 依赖（如果用 wxt submit）
 
-### Phase 4: CI/CD 更新 (0.5 天)
-- [ ] 更新 `ci.yml`：使用 `wxt build` 替代 `node scripts/build.mjs`
-- [ ] 更新 `release.yml`：使用 `wxt zip` 替代 `pnpm package:all`
+### Phase 4: CI/CD 更新 (0.5 天) — 已完成
+- [x] 更新 `ci.yml`：使用 `wxt build` 替代 `node scripts/build.mjs`
+- [x] 更新 `release.yml`：构建命令替代 `pnpm package:all`
   - 注意：WXT 输出到 `.output/` 而非 `dist/`，文件名格式也会变化
-- [ ] 评估是否改用 `wxt submit` 替代 web-ext sign
+- [x] 评估是否改用 `wxt submit` 替代 web-ext sign
+  - 结论：未采用。`wxt submit` 无法传递 AMO 多语言元数据，
+    而 `web-ext sign --amo-metadata` 可以（见 `scripts/prepare-amo-metadata.mjs`）
 
-### Phase 5: 验证 (0.5 天)
-- [ ] 验证 `wxt build` + `wxt zip` 产出与当前 `pnpm package:all` 一致
-- [ ] 加载 dist 到 Chrome/Firefox 测试全部功能
-- [ ] 对照 manifest 差异，确保权限无变化
-- [ ] 运行 `pnpm typecheck` `pnpm lint` `pnpm test` 全部通过
+> 后续演进：构建与打包命令已合并为 `build` 系列（`build` / `build:firefox` / `build:all`），
+> 不再有单独的 `zip` 命令。详见 §6.6。
+
+### Phase 5: 验证 (0.5 天) — 已完成
+- [x] 验证构建产出与迁移前一致
+- [x] 加载 `.output/` 到 Chrome/Firefox 测试全部功能
+- [x] 对照 manifest 差异，确保权限无变化
+- [x] 运行 `pnpm typecheck` `pnpm lint` `pnpm test` 全部通过
 
 ### 总计: 约 3 天
 
@@ -517,17 +554,13 @@ pnpm dlx wxt@latest init my-extension
 pnpm dev              # Chrome dev server + HMR
 pnpm dev:firefox      # Firefox dev server
 
-# 构建
-pnpm build            # 构建 Chrome
-pnpm build:firefox    # 构建 Firefox
+# 构建（一次产出解包目录 + zip）
+pnpm build            # Chrome：.output/chrome-mv3/ + -chrome.zip
+pnpm build:firefox    # Firefox：.output/firefox-mv2/ + -firefox.zip + -sources.zip
+pnpm build:all        # 同时构建 Chrome + Firefox
 
-# 打包
-pnpm zip              # 打包 Chrome ZIP → .output/
-pnpm zip:firefox      # 打包 Firefox ZIP → .output/
-
-# 发布
-pnpm wxt submit       # 提交到 Chrome/Firefox/Edge 商店
-
-# TypeScript
+# 测试与检查
 pnpm typecheck        # TS 检查
+pnpm lint             # ESLint
+pnpm test             # Vitest + 覆盖率阈值
 ```

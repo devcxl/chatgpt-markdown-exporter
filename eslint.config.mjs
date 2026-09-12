@@ -10,6 +10,8 @@ export default tseslint.config(
     commaDangle: 'always-multiline',
   }),
   {
-    ignores: ['dist/', 'node_modules/', '*.mjs'],
+    // WXT 产物目录是 .output/，不存在 dist/；
+    // 而 `*.mjs` 仅匹配根级（如 eslint.config.mjs 自身），scripts/*.mjs 仍会被 lint。
+    ignores: ['node_modules/', '.output/', '.wxt/', 'coverage/', '*.mjs'],
   },
 );
