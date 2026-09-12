@@ -60,9 +60,13 @@ function extractModel(mapping: Record<string, ConversationNode>) {
   let model = '';
 
   if (modelSlug) {
+    // 前缀匹配时必须回查映射值：旧实现直接把命中的 key 当成 model 输出，
+    // 导致 gpt-4-browsing-2024 之类的 slug 在 frontmatter 里显示为原始 key。
+    const prefixKey = Object.keys(MODEL_MAPPING).find(key => modelSlug.startsWith(key));
+
     model
       = MODEL_MAPPING[modelSlug]
-        ?? Object.keys(MODEL_MAPPING).find(key => modelSlug.startsWith(key))
+        ?? (prefixKey ? MODEL_MAPPING[prefixKey] : undefined)
         ?? modelSlug;
   }
 
@@ -126,11 +130,13 @@ function mergeContinuationNodes(nodes: ConversationNode[]): ConversationNode[] {
         && typeof nodeParts[0] === 'string') {
         prevParts[prevParts.length - 1] += nodeParts[0];
         prevParts.push(...nodeParts.slice(1));
+        continue;
       }
     }
-    else {
-      result.push(node);
-    }
+
+    // 走到这里说明该节点既无法并入上一条，也不该被丢弃
+    // （旧实现会把“分段类型不符”的节点静默丢掉，导致导出丢消息）。
+    result.push(node);
   }
 
   return result;

@@ -96,7 +96,18 @@ async function requestConversations(offset: number, limit: number): Promise<{
 async function init(): Promise<void> {
   setStatus(t('popup.connecting'));
 
-  const result = await requestConversations(0, 20);
+  let result;
+
+  try {
+    result = await requestConversations(0, 20);
+  }
+  catch (error) {
+    // sendMessage 在 background 未就绪时会 reject，
+    // 不捕获则弹窗会永久停留在「正在连接⋯」，也没有重试入口
+    showError(error instanceof Error ? error.message : t('popup.connectionFailed'));
+    updateControls();
+    return;
+  }
 
   if (!result?.ok) {
     // 保留界面与重试按钮，仅展示错误

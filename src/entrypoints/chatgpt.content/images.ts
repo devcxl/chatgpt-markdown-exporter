@@ -59,6 +59,12 @@ async function fetchImageBlob(assetPointer: string): Promise<{ blob: Blob; mimeT
     `/files/${encodeURIComponent(pointer)}/download`,
   );
   const response = await fetch(download_url);
+
+  // 下载链接可能已过期（403/404）；不校验状态会把错误正文当成图片存入 assets/
+  if (!response.ok) {
+    throw new Error(`资源下载失败：${response.status} ${response.statusText}`);
+  }
+
   const blob = await response.blob();
   const mimeType = blob.type || response.headers.get('content-type') || 'application/octet-stream';
 
