@@ -17,6 +17,7 @@
     "zip:all": "pnpm zip && pnpm zip:firefox",
     "postinstall": "wxt prepare",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
@@ -28,7 +29,9 @@
   "devDependencies": {
     "@stylistic/eslint-plugin": "^4.2.0",
     "@types/node": "^20.11.20",
+    "@vitest/coverage-v8": "3.2.4",
     "eslint": "^9.15.0",
+    "jsdom": "^30.0.1",
     "publish-browser-extension": "^5.1.0",
     "typescript": "^5.5.2",
     "typescript-eslint": "^8.16.0",

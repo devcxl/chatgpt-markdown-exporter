@@ -14,7 +14,8 @@
 | `pnpm typecheck` | `tsc --noEmit` (strict, noUnusedLocals, noUnusedParameters) |
 | `pnpm lint` | ESLint flat config: 2-space, single quotes, semicolons |
 | `pnpm lint:fix` | Auto-fix lint |
-| `pnpm test` | Vitest (single test file: `src/shared/zip-core.test.ts`) |
+| `pnpm test` | Vitest (jsdom 环境，含覆盖率阈值检查) |
+| `pnpm test:coverage` | Vitest + v8 覆盖率报告（阈值 90%） |
 
 ## Build
 
@@ -64,6 +65,13 @@ src/
 ## CI pipeline (`.github/workflows/ci.yml`)
 
 Order: `pnpm install` → `pnpm typecheck` → `pnpm lint` → `pnpm build` (no tests run in CI).
+
+## Testing
+
+- 测试文件与被测模块同目录、同名 `.test.ts`；`test/setup.ts` 注入 WXT 自动导入的 stub（`defineBackground` / `defineContentScript`）与 `@webext-core/fake-browser` 的 `browser`
+- `vitest.config.ts`：`environment: 'jsdom'`，覆盖率阈值 90%（statements/branches/functions/lines）
+- **注意**：WXT 会把 `src/entrypoints/*.test.ts` 当作入口点，`wxt.config.ts` 的 `entrypoints:found` hook 负责过滤，新增测试文件无需额外配置
+- 纯类型文件（`shared/chatgpt-types.ts`、`i18n/types.ts`）已在 coverage 中排除
 
 ## Release flow
 
