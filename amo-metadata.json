@@ -8,8 +8,8 @@
     "zh-CN": "将 ChatGPT 对话导出为 Markdown 文件。支持单条和批量导出，保留代码块、数学公式和多模态占位符。"
   },
   "description": {
-    "en-US": "A browser extension that exports ChatGPT conversations as Markdown files. Features:\n\n- One-click export of the current ChatGPT conversation\n- Batch export of multiple conversations\n- Direct `.md` download for a single conversation without attachments\n- Fetches data via ChatGPT backend API (not DOM scraping)\n- Preserves User/Assistant role labels, code blocks, and math formulas\n- Preserves multimodal content placeholders (images, audio)\n- Preserves web reference links\n- Supports shared conversation page export\n- Manifest V3, compatible with Chrome and Firefox\n\nOpen source (MIT) — contributions welcome on GitHub.",
-    "zh-CN": "一款将 ChatGPT 对话导出为 Markdown 文件的浏览器扩展。功能特性：\n\n- 一键导出当前 ChatGPT 对话\n- 批量导出多条对话\n- 单条无附件的对话直接下载 `.md`，无需解压\n- 通过 ChatGPT 后端 API 获取数据（非 DOM 抓取）\n- 保留用户/助手角色标签、代码块和数学公式\n- 保留多模态内容占位符（图片、音频）\n- 保留网页引用链接\n- 支持分享页面的对话导出\n- Manifest V3，兼容 Chrome 和 Firefox\n\n开源（MIT 协议）——欢迎在 GitHub 上贡献代码。"
+    "en-US": "A browser extension that exports ChatGPT conversations as Markdown files. Features:\n\n- One-click export of the current ChatGPT conversation\n- Batch export of multiple conversations\n- Direct `.md` download for a single conversation without attachments\n- Fetches data via ChatGPT backend API (not DOM scraping)\n- Preserves User/Assistant role labels, code blocks, and math formulas\n- Preserves multimodal content placeholders (images, audio)\n- Preserves web reference links\n- Supports shared conversation page export\n- Manifest V3, compatible with Chrome and Firefox\n\nOpen source (MIT): https://github.com/devcxl/chatgpt-markdown-exporter",
+    "zh-CN": "一款将 ChatGPT 对话导出为 Markdown 文件的浏览器扩展。功能特性：\n\n- 一键导出当前 ChatGPT 对话\n- 批量导出多条对话\n- 单条无附件的对话直接下载 `.md`，无需解压\n- 通过 ChatGPT 后端 API 获取数据（非 DOM 抓取）\n- 保留用户/助手角色标签、代码块和数学公式\n- 保留多模态内容占位符（图片、音频）\n- 保留网页引用链接\n- 支持分享页面的对话导出\n- Manifest V3，兼容 Chrome 和 Firefox\n\n开源（MIT 协议）：https://github.com/devcxl/chatgpt-markdown-exporter"
   },
   "categories": {
     "firefox": [
