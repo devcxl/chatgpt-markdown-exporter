@@ -6,11 +6,9 @@
 |---|---|
 | `pnpm dev` | WXT dev server (HMR) |
 | `pnpm dev:firefox` | WXT dev server (Firefox) |
-| `pnpm build` | Production build → `.output/` |
-| `pnpm build:firefox` | Production build (Firefox) |
-| `pnpm zip` | Build + Chrome `.zip` |
-| `pnpm zip:firefox` | Build + Firefox `.zip` |
-| `pnpm zip:all` | Build + package Chrome + Firefox |
+| `pnpm build` | 构建 Chrome：解包目录 + `.zip` → `.output/` |
+| `pnpm build:firefox` | 构建 Firefox：解包目录 + `.zip` + sources `.zip` |
+| `pnpm build:all` | 构建 Chrome + Firefox |
 | `pnpm typecheck` | `tsc --noEmit` (strict, noUnusedLocals, noUnusedParameters) |
 | `pnpm lint` | ESLint flat config: 2-space, single quotes, semicolons |
 | `pnpm lint:fix` | Auto-fix lint |
@@ -18,6 +16,14 @@
 | `pnpm test:coverage` | Vitest + v8 覆盖率报告（阈值 90%） |
 
 ## Build
+
+`build` 系列基于 `wxt zip`，**一次同时产出解包目录与 `.zip`**：
+
+- 解包目录：`.output/chrome-mv3/`、`.output/firefox-mv2/`（用于加载调试）
+- 压缩包：`.output/chatgpt-markdown-exporter-<version>-<browser>.zip`（用于上传商店）
+- Firefox 额外产出 `-sources.zip`（AMO 源码审核用）
+
+没有「仅解包不产 zip」的命令；需要解包目录直接取上述路径即可。
 
 WXT framework — entrypoints are auto-detected from `src/entrypoints/`:
 
@@ -75,7 +81,6 @@ Order: `pnpm install` → `pnpm typecheck` → `pnpm lint` → `pnpm build` (no 
 ## Release flow
 
 **约定：用户说「Release / 发版本」时，执行改版本号 + 打标签 + 创建草稿 release，且一律创建草稿，不自行发布。**
-
 Draft-first 两阶段流程（`.github/workflows/release.yml`）：
 
 1. 本地：`package.json` 版本号递增 → commit → 推送 master

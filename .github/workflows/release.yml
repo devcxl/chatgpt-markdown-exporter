@@ -58,7 +58,7 @@ jobs:
 
       - run: pnpm test
 
-      - run: pnpm zip:all
+      - run: pnpm build:all
 
       - name: Create draft release
         uses: softprops/action-gh-release@v2
@@ -90,7 +90,7 @@ jobs:
 
       - run: pnpm install
 
-      - run: pnpm zip:all
+      - run: pnpm build:all
 
       - name: Check Chrome Web Store secrets
         id: chrome-secrets

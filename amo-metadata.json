@@ -12,17 +12,22 @@
     "zh-CN": "一款将 ChatGPT 对话导出为 Markdown 文件的浏览器扩展。功能特性：\n\n- 一键导出当前 ChatGPT 对话\n- 批量导出多条对话\n- 单条无附件的对话直接下载 `.md`，无需解压\n- 通过 ChatGPT 后端 API 获取数据（非 DOM 抓取）\n- 保留用户/助手角色标签、代码块和数学公式\n- 保留多模态内容占位符（图片、音频）\n- 保留网页引用链接\n- 支持分享页面的对话导出\n- Manifest V3，兼容 Chrome 和 Firefox\n\n开源（MIT 协议）——欢迎在 GitHub 上贡献代码。"
   },
   "categories": {
-    "firefox": ["other"]
+    "firefox": [
+      "other"
+    ]
   },
   "requires_payment": false,
   "homepage": {
     "en-US": "https://github.com/devcxl/chatgpt-markdown-exporter"
   },
   "developer_comments": {
-    "en-US": "This extension uses ChatGPT's backend API (not DOM scraping) to fetch conversation data for reliable output. All processing happens locally — no external servers are involved, and no user data is collected, transmitted, or stored outside your browser.\n\nThe extension is written in TypeScript, bundled with WXT (Vite). The source archive uploaded with each submission contains the full source; `pnpm install && pnpm zip:firefox` reproduces the packaged extension.",
-    "zh-CN": "本扩展通过 ChatGPT 后端 API 获取对话数据（非 DOM 抓取），确保输出可靠。所有处理均在本地完成——不涉及外部服务器，不会在浏览器之外收集、传输或存储任何用户数据。\n\n扩展使用 TypeScript 编写，WXT（Vite）构建。每次提交的源码包内含完整源码；执行 `pnpm install && pnpm zip:firefox` 可复现打包结果。"
+    "en-US": "This extension uses ChatGPT's backend API (not DOM scraping) to fetch conversation data for reliable output. All processing happens locally — no external servers are involved, and no user data is collected, transmitted, or stored outside your browser.\n\nThe extension is written in TypeScript, bundled with WXT (Vite). The source archive uploaded with each submission contains the full source; `pnpm install && pnpm build:firefox` reproduces the packaged extension.",
+    "zh-CN": "本扩展通过 ChatGPT 后端 API 获取对话数据（非 DOM 抓取），确保输出可靠。所有处理均在本地完成——不涉及外部服务器，不会在浏览器之外收集、传输或存储任何用户数据。\n\n扩展使用 TypeScript 编写，WXT（Vite）构建。每次提交的源码包内含完整源码；执行 `pnpm install && pnpm build:firefox` 可复现打包结果。"
   },
-  "supported_locales": ["en-US", "zh-CN"],
+  "supported_locales": [
+    "en-US",
+    "zh-CN"
+  ],
   "version": {
     "license": "MIT",
     "release_notes": {

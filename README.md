@@ -92,8 +92,14 @@ pnpm install
 # 开发模式（文件变更自动构建）
 pnpm dev
 
-# 构建到 dist/
+# 构建 Chrome：解包目录 + .zip 包
 pnpm build
+
+# 构建 Firefox：解包目录 + .zip + 源码包
+pnpm build:firefox
+
+# 同时构建 Chrome + Firefox
+pnpm build:all
 
 # 类型检查
 pnpm typecheck
@@ -104,10 +110,9 @@ pnpm lint
 # 自动修复
 pnpm lint:fix
 
-# 打包浏览器安装包
-pnpm package:all     # 同时生成 Chrome + Firefox .zip
-pnpm package:chrome  # 仅 Chrome
-pnpm package:firefox # 仅 Firefox
+# 单元测试（含覆盖率阈值检查）
+pnpm test
+pnpm test:coverage
 ```
 
 ### 加载到 Chrome
@@ -115,13 +120,13 @@ pnpm package:firefox # 仅 Firefox
 1. 打开 `chrome://extensions`
 2. 开启「开发者模式」
 3. 点击「加载已解压的扩展程序」
-4. 选择 `dist` 目录
+4. 选择 `.output/chrome-mv3` 目录
 
 ### 加载到 Firefox
 
 1. 打开 `about:debugging#/runtime/this-firefox`
 2. 点击「临时载入附加组件」
-3. 选择 `dist/manifest.json`
+3. 选择 `.output/firefox-mv2/manifest.json`
 
 ## License
 

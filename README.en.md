@@ -94,8 +94,14 @@ pnpm install
 # Development mode (auto rebuild on file changes)
 pnpm dev
 
-# Build to dist/
+# Build Chrome: unpacked directory + .zip
 pnpm build
+
+# Build Firefox: unpacked directory + .zip + sources archive
+pnpm build:firefox
+
+# Build Chrome + Firefox together
+pnpm build:all
 
 # Type check
 pnpm typecheck
@@ -106,10 +112,9 @@ pnpm lint
 # Auto fix
 pnpm lint:fix
 
-# Package browser installers
-pnpm package:all     # Generate both Chrome + Firefox .zip
-pnpm package:chrome  # Chrome only
-pnpm package:firefox # Firefox only
+# Unit tests (with coverage thresholds)
+pnpm test
+pnpm test:coverage
 ```
 
 ### Load into Chrome
@@ -117,13 +122,13 @@ pnpm package:firefox # Firefox only
 1. Open `chrome://extensions`
 2. Enable **Developer mode**
 3. Click **Load unpacked**
-4. Select the `dist` directory
+4. Select the `.output/chrome-mv3` directory
 
 ### Load into Firefox
 
 1. Open `about:debugging#/runtime/this-firefox`
 2. Click **Load Temporary Add-on**
-3. Select `dist/manifest.json`
+3. Select `.output/firefox-mv2/manifest.json`
 
 ## License
 
