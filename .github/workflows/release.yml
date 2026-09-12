@@ -1,16 +1,26 @@
 name: Release
 
+# Draft-first 发布流程：
+#   1. 推送 v* 标签 → 构建并创建「草稿」release，此时不会提交到任何商店，仓库维护者可以先复核产物
+#   2. 在 GitHub 上发布该草稿 → 触发 submit 任务，正式提交 Chrome Web Store 与 AMO
+#
+# 之所以拆成两阶段：草稿 release 本身不会触发 release 事件，
+# 因此「发布草稿」这一动作天然成为提交商店前的最后一道人工闸门。
+
 on:
   push:
     tags:
       - 'v*'
+  release:
+    types: [published]
+
+permissions:
+  contents: write
 
 jobs:
-  release:
+  draft:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -22,18 +32,22 @@ jobs:
           node-version: 22
           cache: 'pnpm'
 
-      - name: Set version from tag
+      - name: Verify version matches tag
         run: |
           VERSION="${GITHUB_REF#refs/tags/v}"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
+          # 发布流程要求先改 package.json 再打标签；此处兜底校验，
+          # 避免标签与包版本不一致导致产物文件名与商店版本号错位。
           node -e "
             const fs = require('node:fs');
-            const pkgPath = 'package.json';
-            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-            pkg.version = '$VERSION';
-            fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
-            console.log('package.json version updated to', '$VERSION');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const tag = '$VERSION';
+            if (pkg.version !== tag) {
+              console.error('版本不一致：package.json=' + pkg.version + '，标签=' + tag);
+              process.exit(1);
+            }
+            console.log('版本校验通过：' + tag);
           "
 
       - run: pnpm install
@@ -41,6 +55,40 @@ jobs:
       - run: pnpm typecheck
 
       - run: pnpm lint
+
+      - run: pnpm test
+
+      - run: pnpm zip:all
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            .output/chatgpt-markdown-exporter-*-chrome.zip
+            .output/chatgpt-markdown-exporter-*-firefox.zip
+          generate_release_notes: true
+
+  submit:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Read version from release tag
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - run: pnpm install
 
       - run: pnpm zip:all
 
@@ -93,11 +141,3 @@ jobs:
             --upload-source-code .output/chatgpt-markdown-exporter-*-sources.zip \
             --api-key "$AMO_JWT_ISSUER" \
             --api-secret "$AMO_JWT_SECRET"
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            .output/chatgpt-markdown-exporter-*-chrome.zip
-            .output/chatgpt-markdown-exporter-*-firefox.zip
-          generate_release_notes: true

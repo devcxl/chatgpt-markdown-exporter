@@ -65,7 +65,6 @@ src/
 ## CI pipeline (`.github/workflows/ci.yml`)
 
 Order: `pnpm install` → `pnpm typecheck` → `pnpm lint` → `pnpm build` (no tests run in CI).
-
 ## Testing
 
 - 测试文件与被测模块同目录、同名 `.test.ts`；`test/setup.ts` 注入 WXT 自动导入的 stub（`defineBackground` / `defineContentScript`）与 `@webext-core/fake-browser` 的 `browser`
@@ -75,7 +74,25 @@ Order: `pnpm install` → `pnpm typecheck` → `pnpm lint` → `pnpm build` (no 
 
 ## Release flow
 
-Tag `v*` triggers `.github/workflows/release.yml`: update package.json version → build → zip → GitHub Release → optional AMO submission via `web-ext sign`.
+**约定：用户说「Release / 发版本」时，执行改版本号 + 打标签 + 创建草稿 release，且一律创建草稿，不自行发布。**
+
+Draft-first 两阶段流程（`.github/workflows/release.yml`）：
+
+1. 本地：`package.json` 版本号递增 → commit → 推送 master
+2. 打并推送 `v<version>` 标签 → `draft` 任务校验 tag 与 `package.json` 版本一致，
+   跑 typecheck / lint / test / zip，创建**草稿** release 并附上两个 zip
+3. **人工复核草稿**（确认产物与发布说明）后，在 GitHub 上点「Publish release」
+   → 触发 `submit` 任务，正式提交 Chrome Web Store（STAGED_PUBLISH）与 AMO
+
+关键点：
+
+- 草稿 release 不会触发 release 事件，因此「发布草稿」天然成为上架前的人工闸门；
+  仅推标签不会向商店提交任何内容
+- `submit` 任务在 `published` 事件上运行，靠 release 事件重新构建产物并提交
+- Chrome 提交需要 `CHROME_EXTENSION_ID` / `CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL` /
+  `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY` 三个 secret；AMO 需要 `AMO_JWT_ISSUER` / `AMO_JWT_SECRET`。
+  缺失时对应步骤自动跳过（不会报错）
+- tag 与 `package.json` 版本必须一致（先改版本再打标签），`draft` 任务会硬校验
 
 ## Extension constraints
 
