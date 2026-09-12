@@ -3,7 +3,7 @@
     "message": "ChatGPT Markdown Exporter"
   },
   "extDescription": {
-    "message": "Export the current ChatGPT conversation as Markdown."
+    "message": "Export ChatGPT conversations as Markdown files, with code blocks, math formulas and image placeholders preserved."
   },
   "extDefaultTitle": {
     "message": "ChatGPT Markdown Exporter"

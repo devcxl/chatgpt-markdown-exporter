@@ -20,8 +20,8 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src",
-    "lint:fix": "eslint --fix src"
+    "lint": "eslint src scripts",
+    "lint:fix": "eslint --fix src scripts"
   },
   "dependencies": {
     "sanitize-filename": "^1.6.3"

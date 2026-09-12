@@ -129,6 +129,16 @@ jobs:
             echo "available=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Prepare AMO metadata
+        if: ${{ steps.amo-secrets.outputs.available == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 用本次 GitHub Release 的说明作为 AMO 的版本更新说明，
+          # 避免在仓库里重复维护一份 release notes。
+          gh release view "v${VERSION}" --json body -q .body > /tmp/release-notes.md
+          node scripts/prepare-amo-metadata.mjs /tmp/amo-metadata.json /tmp/release-notes.md
+
       - name: Submit to Firefox Add-ons (AMO)
         if: ${{ steps.amo-secrets.outputs.available == 'true' }}
         env:
@@ -138,6 +148,7 @@ jobs:
           npx web-ext sign \
             --source-dir .output/firefox-mv2 \
             --channel=listed \
+            --amo-metadata /tmp/amo-metadata.json \
             --upload-source-code .output/chatgpt-markdown-exporter-*-sources.zip \
             --api-key "$AMO_JWT_ISSUER" \
             --api-secret "$AMO_JWT_SECRET"
