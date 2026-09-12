@@ -32,11 +32,25 @@ export function i18nPopulate(root: ParentNode): void {
 }
 
 function detectLocale(): SupportedLocale {
-  const lang = globalThis.navigator?.language ?? 'en';
+  const lang = getBrowserUiLanguage() ?? globalThis.navigator?.language ?? 'en';
 
   if (lang.toLowerCase().startsWith('zh')) {
     return 'zh-CN';
   }
 
   return 'en';
+}
+
+function getBrowserUiLanguage(): string | undefined {
+  try {
+    if (typeof browser === 'undefined') {
+      return undefined;
+    }
+
+    return browser.i18n.getUILanguage();
+  }
+  catch {
+    // 非扩展测试环境可能没有实现 browser.i18n，回退到 navigator.language。
+    return undefined;
+  }
 }

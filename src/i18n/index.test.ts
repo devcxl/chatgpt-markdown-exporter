@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-/* i18n 在模块加载时按 navigator.language 决定语言，
+/* i18n 在模块加载时按浏览器 UI 语言决定语言，
  * 因此每个用例都 resetModules 后重新 import，才能覆盖 zh / en 两个分支。 */
 
 async function loadI18n(language: string) {
@@ -30,6 +30,20 @@ describe('t', () => {
     const { t } = await loadI18n('en-US');
 
     expect(t('common.export')).toBe('Export');
+  });
+
+  it('优先使用浏览器 UI 语言，避免 Firefox 的 navigator.language 仍为中文', async () => {
+    vi.resetModules();
+    Object.defineProperty(navigator, 'language', { value: 'zh-CN', configurable: true });
+    const getUILanguage = vi.spyOn(browser.i18n, 'getUILanguage').mockReturnValue('en-US');
+
+    try {
+      const { t } = await import('./index.ts');
+      expect(t('common.export')).toBe('Export');
+    }
+    finally {
+      getUILanguage.mockRestore();
+    }
   });
 
   it('zh 前缀（含地区与大小写）都识别为中文', async () => {
