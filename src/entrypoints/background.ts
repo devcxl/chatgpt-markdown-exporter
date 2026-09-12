@@ -8,6 +8,8 @@ import {
   isRequestConversationListMessage,
   isRequestExportConversationsMessage,
   type ConversationListResponse,
+  type DownloadMarkdownMessage,
+  type DownloadZipMessage,
   type RequestConversationListMessage,
   type RuntimeResponse,
 } from '../shared/messages';
@@ -54,30 +56,31 @@ export default defineBackground(() => {
       return undefined;
     }
 
-    try {
-      if (message.type === 'DOWNLOAD_MARKDOWN') {
-        if (!isNamedTextFile(message.file)) {
-          throw new Error(t('background.invalidDownloadParams'));
-        }
+    // 下载是异步的，必须把真实结果（成功/失败）返回给调用方，
+    // 否则大小超限、下载被拒等错误会被静默吞掉，调用方误报成功。
+    return handleDownloadMessage(message).catch(error => ({
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+  });
 
-        void downloadTextFile(message.file.filename, message.file.content, message.saveAs);
-        return { ok: true };
+  async function handleDownloadMessage(message: DownloadMarkdownMessage | DownloadZipMessage): Promise<RuntimeResponse> {
+    if (message.type === 'DOWNLOAD_MARKDOWN') {
+      if (!isNamedTextFile(message.file)) {
+        throw new Error(t('background.invalidDownloadParams'));
       }
 
-      if (!Array.isArray(message.files) || message.files.some(file => !isNamedZipEntry(file))) {
-        throw new Error(t('background.invalidZipParams'));
-      }
-
-      void downloadZipFile(message.filename, message.files as NamedZipEntry[], message.saveAs);
+      await downloadTextFile(message.file.filename, message.file.content, message.saveAs);
       return { ok: true };
     }
-    catch (error) {
-      return {
-        ok: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
+
+    if (!Array.isArray(message.files) || message.files.some(file => !isNamedZipEntry(file))) {
+      throw new Error(t('background.invalidZipParams'));
     }
-  });
+
+    await downloadZipFile(message.filename, message.files as NamedZipEntry[], message.saveAs);
+    return { ok: true };
+  }
 
   async function handlePopupConversationListRequest(message: RequestConversationListMessage): Promise<ConversationListResponse> {
     const tabId = await findChatGPTTabId();
@@ -187,7 +190,23 @@ export default defineBackground(() => {
           return;
         }
 
-        await ensureTabReady(tab.id);
+        if (await ensureTabReady(tab.id)) {
+          return;
+        }
+
+        // 安装/更新前已打开的标签页没有 content script，PING 永远失败，
+        // 需要主动注入（manifest 静态注入只对之后加载的页面生效）。
+        // 路径对应 WXT 打包产物：src/entrypoints/chatgpt.content → content-scripts/chatgpt.js
+        try {
+          await browser.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['/content-scripts/chatgpt.js'],
+          });
+          readyTabs.add(tab.id);
+        }
+        catch (injectError) {
+          console.error('注入导出脚本失败', injectError);
+        }
       }));
     }
     catch (error) {
@@ -323,7 +342,9 @@ export default defineBackground(() => {
 
       browser.downloads.onChanged.addListener(handleChanged);
 
-      window.setTimeout(cleanup, 60_000);
+      // 兜底超时：仅用于防止事件丢失时泄漏 Object URL。
+      // 下载完成/中断时 handleChanged 会提前清理，正常情况不会等到超时。
+      window.setTimeout(cleanup, 5 * 60_000);
     });
   }
 });

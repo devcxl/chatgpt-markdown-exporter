@@ -9,8 +9,9 @@ export function getChatIdFromUrl(): string | null {
 }
 
 export function isSharePage(): boolean {
-  return location.pathname.startsWith('/share')
-    && !location.pathname.endsWith('/continue');
+  // 包含 /share/<id>/continue（分享页的「继续对话」），
+  // 这类页面同样是分享数据，走 /conversation API 会 404。
+  return location.pathname.startsWith('/share');
 }
 
 export async function fetchShareConversationFromPage(): Promise<unknown | null> {

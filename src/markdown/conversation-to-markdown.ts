@@ -317,12 +317,27 @@ function transformFootnotes(
 }
 
 function normalizeMath(input: string): string {
-  return input
+  // 先把代码块/行内代码替换为占位符，避免误替换其中的 \[ \] \\( \\) 字面量
+  const codeFragments: string[] = [];
+
+  const protectedText = input
+    .replace(/```[\s\S]*?(?:```|$)/g, (match) => {
+      codeFragments.push(match);
+      return `\u0000CODE${codeFragments.length - 1}\u0000`;
+    })
+    .replace(/`[^`\n]*`/g, (match) => {
+      codeFragments.push(match);
+      return `\u0000CODE${codeFragments.length - 1}\u0000`;
+    });
+
+  const converted = protectedText
     .replace(/^\\\[(.+)\\\]$/gm, '$$$$ $1 $$$$')
     .replace(/\\\[/g, '$')
     .replace(/\\\]/g, '$')
     .replace(/\\\(/g, '$')
     .replace(/\\\)/g, '$');
+
+  return converted.replace(/\u0000CODE(\d+)\u0000/g, (_match, index) => codeFragments[Number(index)]);
 }
 
 function yamlString(input: string): string {

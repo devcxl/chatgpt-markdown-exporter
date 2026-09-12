@@ -151,7 +151,11 @@ export async function resolveImagesAsFileRefs(
 
   for (const [pointer, resolved] of results) {
     const filename = generateAssetFilename(resolved.mimeType, usedFilenames, prefix);
-    pointerToFilename.set(pointer, filename);
+    // Markdown 内的图片引用必须相对 .md 文件所在目录：
+    // .md 与 assets/ 子目录始终在同一层级（如 ChatGPT/标题.md 与 ChatGPT/assets/xxx.png），
+    // 若引用带 ChatGPT/ 前缀，主流查看器（Typora/Obsidian/VS Code）会解析到错误位置导致断图。
+    const relativeRef = prefix ? filename.slice(prefix.length) : filename;
+    pointerToFilename.set(pointer, relativeRef);
     imageEntries.push({ filename, data: resolved.base64 });
   }
 

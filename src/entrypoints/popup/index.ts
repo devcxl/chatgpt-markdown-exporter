@@ -9,6 +9,7 @@ interface ConversationItem {
 
 interface State {
   conversations: ConversationItem[];
+  selectedIds: Set<string>;
   isLoading: boolean;
   isBusy: boolean;
   contentReady: boolean;
@@ -17,6 +18,7 @@ interface State {
 
 const state: State = {
   conversations: [],
+  selectedIds: new Set(),
   isLoading: false,
   isBusy: false,
   contentReady: false,
@@ -49,6 +51,28 @@ listEl.addEventListener('scroll', () => {
   }
 }, { passive: true });
 
+// 事件委托：勾选状态同步到 selectedIds，防止 render() 重建列表后丢失
+listEl.addEventListener('change', (event) => {
+  const target = event.target as HTMLInputElement;
+
+  if (target.type !== 'checkbox') {
+    return;
+  }
+
+  const chatId = target.dataset.chatId;
+
+  if (!chatId) {
+    return;
+  }
+
+  if (target.checked) {
+    state.selectedIds.add(chatId);
+  }
+  else {
+    state.selectedIds.delete(chatId);
+  }
+});
+
 i18nPopulate(document.body);
 void init();
 
@@ -71,7 +95,9 @@ async function init(): Promise<void> {
   const result = await requestConversations(0, 20);
 
   if (!result?.ok) {
+    // 保留界面与重试按钮，仅展示错误
     showError(result?.error ?? t('popup.connectionFailed'));
+    updateControls();
     return;
   }
 
@@ -134,6 +160,7 @@ async function loadConversations(): Promise<void> {
 
   state.isLoading = true;
   state.conversations = [];
+  state.selectedIds.clear();
   state.hasMore = true;
   updateControls();
   render();
@@ -149,6 +176,7 @@ async function loadConversations(): Promise<void> {
       return;
     }
 
+    state.contentReady = true;
     state.conversations = result.conversations ?? [];
     state.hasMore = state.conversations.length >= 20;
     sectionTitleEl.textContent = state.hasMore
@@ -216,15 +244,27 @@ async function exportSelected(): Promise<void> {
 function setAllSelections(checked: boolean): void {
   for (const checkbox of listEl.querySelectorAll<HTMLInputElement>('input[type=\'checkbox\']')) {
     checkbox.checked = checked;
+
+    const chatId = checkbox.dataset.chatId;
+
+    if (!chatId) {
+      continue;
+    }
+
+    if (checked) {
+      state.selectedIds.add(chatId);
+    }
+    else {
+      state.selectedIds.delete(chatId);
+    }
   }
 }
 
 function getSelectedIds(): string[] {
-  return Array.from(
-    listEl.querySelectorAll<HTMLInputElement>('input[type=\'checkbox\']:checked'),
-  )
-    .map(cb => cb.dataset.chatId)
-    .filter((v): v is string => Boolean(v));
+  // 按列表顺序返回，避免 Set 插入顺序与展示顺序不一致
+  return state.conversations
+    .filter(conversation => state.selectedIds.has(conversation.id))
+    .map(conversation => conversation.id);
 }
 
 function render(): void {
@@ -249,6 +289,7 @@ function render(): void {
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.dataset.chatId = conversation.id;
+    checkbox.checked = state.selectedIds.has(conversation.id);
 
     const textWrap = document.createElement('span');
     textWrap.className = 'conversation-text';
@@ -274,12 +315,14 @@ function render(): void {
 }
 
 function updateControls(): void {
-  const disabled = state.isBusy || !state.contentReady;
+  // 刷新按钮始终可用（作为初始化失败后的重试入口）
+  refreshBtn.disabled = state.isBusy || state.isLoading;
 
-  refreshBtn.disabled = disabled || state.isLoading;
-  selectAllBtn.disabled = disabled || state.conversations.length === 0;
-  clearSelectionBtn.disabled = disabled || state.conversations.length === 0;
-  exportBtn.disabled = disabled || state.conversations.length === 0;
+  const ready = state.contentReady && state.conversations.length > 0;
+
+  selectAllBtn.disabled = state.isBusy || !ready;
+  clearSelectionBtn.disabled = state.isBusy || !ready;
+  exportBtn.disabled = state.isBusy || !ready;
 }
 
 function setStatus(text: string, tone: 'muted' | 'success' | 'warning' | 'error' = 'muted'): void {
@@ -288,16 +331,8 @@ function setStatus(text: string, tone: 'muted' | 'success' | 'warning' | 'error'
 }
 
 function showError(text: string): void {
-  const root = document.querySelector('.root');
-
-  if (!root) {
-    return;
-  }
-
-  const banner = document.createElement('div');
-  banner.className = 'error-banner';
-  banner.textContent = text;
-  root.replaceChildren(banner);
+  // 只更新状态栏，保留界面与重试按钮
+  setStatus(text, 'error');
 }
 
 function createPlaceholder(text: string): HTMLDivElement {
