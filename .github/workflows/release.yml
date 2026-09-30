@@ -128,10 +128,11 @@ jobs:
             exit 1
           fi
 
-          npx publish-extension \
+          # 与另两个扩展保持一致的提交入口：wxt submit 会原样转发参数给
+          # publish-extension（版本由 package.json 的直接依赖 + pnpm.overrides 锁定）。
+          npx wxt submit \
             --chrome-zip ".output/chatgpt-markdown-exporter-${VERSION}-chrome.zip" \
             --chrome-api-version v2 \
-            --chrome-publisher-id "$CHROME_PUBLISHER_ID" \
             --chrome-publish-type STAGED_PUBLISH
 
       - name: Check AMO secrets

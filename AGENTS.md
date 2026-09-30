@@ -149,6 +149,15 @@ jq -r .private_key  "$KEY" | gh secret set CHROME_SERVICE_ACCOUNT_PRIVATE_KEY
 提交行为：使用 `STAGED_PUBLISH`，即提交后**不自动上架**，需在开发者后台手动发布。
 Chrome 不支持通过 API 写商店文案（listing），详细说明只能手动填，见 `docs/store-listing.md`。
 
+#### 为什么 `package.json` 里要 `pnpm.overrides` 锁 publish-browser-extension
+
+三个扩展统一用 `wxt submit` 提交。`wxt submit` 的实现只是
+`await import('publish-browser-extension/cli')`，按 **wxt 自己声明的依赖范围**解析 CLI；
+本项目 wxt 0.20.27 的范围是 `^2.3.0 || ^3.0.2 || ^4.0.5`，不含 6.x。只把它写成直接依赖不够 ——
+实测此时 `wxt submit --chrome-api-version v2` 直接报 `Unknown option --chromeApiVersion`，
+因为加载到的仍是 wxt 范围内的旧版本。所以必须用 `pnpm.overrides` 把解析强制到 6.1.1。
+将来 wxt 的范围放宽到 6.x 后，这个 override 可以删掉。
+
 ## Store metadata（商店文案）
 
 商店页文案与包内 i18n 是**两套独立机制**，详细说明见 [`docs/store-listing.md`](docs/store-listing.md)：
