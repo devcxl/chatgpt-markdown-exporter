@@ -108,14 +108,24 @@ Draft-first 两阶段流程（`.github/workflows/release.yml`）：
 | `CHROME_EXTENSION_ID` | 扩展 ID（商店链接中 32 位小写串） |
 | `CHROME_PUBLISHER_ID` | 发布者 UUID（v2 API 路径 `publishers/{id}/items/{id}` 必需） |
 | `CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL` | 服务账号邮箱 |
-| `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY` | 服务账号私钥（**base64**，见下） |
+| `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY` | 服务账号私钥（**PEM 文本**，含真实换行，见下） |
 
 获取方式：
 
-1. Google Cloud Console 启用 **Chrome Web Store API**
-2. 创建服务账号（无需授予 IAM 权限），生成 **JSON 密钥**并下载
-3. CWS 开发者后台 → **Account** → 添加服务账号邮箱（漏做会 403）
-4. 后台右上角选择发布者，URL `.../devconsole/<PUBLISHER_ID>` 中即为 Publisher ID
+1. Google Cloud Console 新建项目 → 启用 **Chrome Web Store API**
+2. 创建服务账号（无需授予任何 IAM 权限），生成 **JSON 密钥**并下载
+3. CWS 开发者后台 → **设置 → 账号 → 服务账号**，填入服务账号邮箱（漏做会 403）
+   - **每个发布者只能绑定一个服务账号**；换绑需先在后台删除旧的
+4. 后台地址栏 `.../devconsole/<PUBLISHER_ID>` 中即为 Publisher ID
+
+当前三个扩展共用同一套凭证（同一发布者账号）：
+
+| 项 | 值 |
+|---|---|
+| GCP 项目 | `devcxlcn-cws-publish` |
+| 服务账号 | `cws-publisher@devcxlcn-cws-publish.iam.gserviceaccount.com` |
+| Publisher ID | `8abf8c9c-7c9b-4a70-95d4-e6b7733fd70b` |
+| 本地密钥备份 | `~/.config/cws/cws-publisher.json`（600，**不要入库**） |
 
 配置命令（推荐，从 GCP 下载的 JSON 密钥文件直接提取）：
 
@@ -133,9 +143,8 @@ jq -r .private_key  "$KEY" | gh secret set CHROME_SERVICE_ACCOUNT_PRIVATE_KEY
 
 **为什么不能直接存整个 JSON**：`private_key` 在 JSON 文件里是字面量 `\n`，
 直接当环境变量传入会得到不含换行的 PEM，签名时报 `DECODER routines::unsupported`
-（已实测）。又因为 workfow 里的 base64 分支只负责解码，
-传 base64(整个JSON) 会得到 JSON 文本而非 PEM，同样失败。
-所以只传私钥字符串本身，不做 base64 包装。
+（已实测）。所以只传私钥字符串本身，不做 base64 包装；workflow 里也加了 PEM 格式的前置校验，
+让这个错误在提交前就暴露。
 
 提交行为：使用 `STAGED_PUBLISH`，即提交后**不自动上架**，需在开发者后台手动发布。
 Chrome 不支持通过 API 写商店文案（listing），详细说明只能手动填，见 `docs/store-listing.md`。
