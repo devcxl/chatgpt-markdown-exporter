@@ -122,13 +122,13 @@ pnpm test:coverage
 1. Open `chrome://extensions`
 2. Enable **Developer mode**
 3. Click **Load unpacked**
-4. Select the `.output/chrome-mv3` directory
+4. Select the `dist/chrome-mv3` directory
 
 ### Load into Firefox
 
 1. Open `about:debugging#/runtime/this-firefox`
 2. Click **Load Temporary Add-on**
-3. Select `.output/firefox-mv2/manifest.json`
+3. Select `dist/firefox-mv3/manifest.json`
 
 ## License
 
