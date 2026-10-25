@@ -36,9 +36,13 @@ const SLOT_SELECTORS = [
 const LEGACY_HEADER_SELECTOR = '#conversation-header-actions';
 const TITLEBAR_SELECTOR = 'header, [data-app-shell-main-titlebar], [data-app-shell-titlebar="true"]';
 
-/* 浮动兜底与原生插槽的间距预算：浮层需要避开右侧「分享/更多」按钮组 */
-const FALLBACK_RIGHT_INSET = 12;
+/* 浮层与宿主元素之间需要保留的最小间隙，以及找不到空洞时贴在 header 下方的边距 */
+const FALLBACK_GAP = 8;
 const FALLBACK_TOP_FALLBACK = 8;
+
+/* 参与「避让计算」的交互元素。范围收窄到 header 内部即可：真机实测 header 内
+ * 只有约 9 个交互元素（全文档 142 个），连同几何读取的代价可以忽略。 */
+const HEADER_INTERACTIVE_SELECTOR = 'button, a[href], [role="button"], input, select, textarea';
 
 /* 新版页面的按钮样式来自 CSS Modules，旧版工具类（btn-ghost、text-token-*）
  * 已失效，因此按钮样式自包含注入；颜色优先取宿主 CSS 变量，附带回退值。 */
@@ -146,21 +150,124 @@ function findSlotTarget(): HTMLElement | null {
   return null;
 }
 
-/** 让浮层对齐 header 的垂直中线与右侧边界；拿不到 header 时贴右上角。 */
+/**
+ * 浮层定位。
+ *
+ * 不能简单地「贴右边缘」：真机实测 header 右侧从 x=1279 到 1545 被
+ * 「更多 / 升级订阅 / 关闭升级提醒 / 分享」连续占满，右边界距视口只剩 8px，
+ * 任何贴右定位都会压住「分享」按钮。
+ *
+ * 因此按 header 带内的真实占用区间做空洞检测，优先放到最靠右且放得下的空位；
+ * 只有整条带都塞满时，才退到 header 下方（此时至少不遮挡 header 控件）。
+ */
 function positionFloating(button: HTMLElement): void {
   const header = document.querySelector<HTMLElement>(TITLEBAR_SELECTOR);
   const rect = header?.getBoundingClientRect();
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+  const width = getButtonWidth(button);
 
-  if (rect && rect.height > 0) {
-    const top = Math.round(rect.top + (rect.height - button.offsetHeight) / 2);
-
-    button.style.top = `${Math.max(top, 0)}px`;
-    button.style.right = `${FALLBACK_RIGHT_INSET}px`;
+  if (!header || !rect || rect.height <= 0 || viewportWidth <= 0) {
+    // 拿不到 header 几何信息：贴视口右上角，保证功能可用
+    button.style.top = `${FALLBACK_TOP_FALLBACK}px`;
+    button.style.left = `${Math.max(viewportWidth - width - FALLBACK_GAP, 0)}px`;
+    button.style.removeProperty('right');
     return;
   }
 
-  button.style.top = `${FALLBACK_TOP_FALLBACK}px`;
-  button.style.right = `${FALLBACK_RIGHT_INSET}px`;
+  const height = getButtonHeight(button);
+  const centerTop = Math.round(rect.top + (rect.height - height) / 2);
+  const occupied = collectHeaderOccupancy(header, button);
+  const slot = findRightmostGap(occupied, rect.left, rect.right, width, FALLBACK_GAP);
+
+  if (slot !== null) {
+    // 带内有空位：垂直居中于 header
+    button.style.top = `${Math.max(centerTop, 0)}px`;
+    button.style.left = `${slot}px`;
+    button.style.removeProperty('right');
+    return;
+  }
+
+  // 整条带都塞满：退到 header 下方，避免遮挡任何 header 控件
+  button.style.top = `${Math.round(rect.bottom + FALLBACK_GAP)}px`;
+  button.style.left = `${Math.max(rect.right - width - FALLBACK_GAP, FALLBACK_GAP)}px`;
+  button.style.removeProperty('right');
+}
+
+/* jsdom 与尚未完成布局时 offsetWidth 为 0，需要有兜底宽度才能参与空洞计算 */
+function getButtonWidth(button: HTMLElement): number {
+  return button.offsetWidth || 80;
+}
+
+function getButtonHeight(button: HTMLElement): number {
+  return button.offsetHeight || 32;
+}
+
+/** 收集 header 带内交互元素的水平占用区间（已合并相邻区间） */
+function collectHeaderOccupancy(
+  header: HTMLElement,
+  button: HTMLElement,
+): Array<{ left: number; right: number }> {
+  const intervals: Array<{ left: number; right: number }> = [];
+
+  for (const element of header.querySelectorAll<HTMLElement>(HEADER_INTERACTIVE_SELECTOR)) {
+    // 自己不参与避让，否则会把浮层从当前位置挤走
+    if (element === button || button.contains(element) || element.contains(button)) {
+      continue;
+    }
+
+    const rect = element.getBoundingClientRect();
+
+    if (rect.width < 1 || rect.height < 1) continue;
+    if (!isElementVisible(element)) continue;
+
+    intervals.push({ left: rect.left, right: rect.right });
+  }
+
+  intervals.sort((a, b) => a.left - b.left);
+
+  const merged: Array<{ left: number; right: number }> = [];
+
+  for (const interval of intervals) {
+    const last = merged[merged.length - 1];
+
+    if (last && interval.left <= last.right + FALLBACK_GAP) {
+      last.right = Math.max(last.right, interval.right);
+      continue;
+    }
+
+    merged.push({ ...interval });
+  }
+
+  return merged;
+}
+
+/**
+ * 在 [minLeft, maxRight] 内找最靠右、宽度不小于 width 的空洞，返回其左边界坐标。
+ * 放不下时返回 null。
+ */
+function findRightmostGap(
+  occupied: Array<{ left: number; right: number }>,
+  minLeft: number,
+  maxRight: number,
+  width: number,
+  gap: number,
+): number | null {
+  let cursor = maxRight;
+
+  // 从右往左扫描：第一个能放下 width 的空洞就是最靠右的选择
+  for (let index = occupied.length - 1; index >= 0; index -= 1) {
+    const interval = occupied[index];
+
+    if (cursor - width >= interval.right + gap) {
+      return Math.max(cursor - width, minLeft);
+    }
+
+    cursor = Math.min(cursor, interval.left - gap);
+  }
+
+  const leftmost = cursor - width;
+
+  return leftmost >= minLeft ? leftmost : null;
 }
 
 function attachTo(button: HTMLButtonElement, target: HTMLElement | null): MountResult {
@@ -175,6 +282,7 @@ function attachTo(button: HTMLButtonElement, target: HTMLElement | null): MountR
     if (button.hasAttribute(CURRENT_EXPORT_FALLBACK_ATTR)) {
       button.removeAttribute(CURRENT_EXPORT_FALLBACK_ATTR);
       button.style.top = '';
+      button.style.left = '';
       button.style.right = '';
     }
 

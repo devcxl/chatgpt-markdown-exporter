@@ -162,14 +162,15 @@ describe('mountCurrentExportButton', () => {
     expect(isElementVisible(button() as HTMLElement)).toBe(true);
   });
 
-  it('浮动兜底时带上定位样式与避让右边距', async () => {
+  it('浮动兜底时带上定位样式与水平位置', async () => {
     mountCurrentExportButton(() => {});
     await settle();
 
     const style = document.getElementById(BUTTON_STYLE_ID)?.textContent ?? '';
 
     expect(button()?.getAttribute('data-cgpt-export-fallback')).toBe('true');
-    expect(button()?.style.right).not.toBe('');
+    // 用 left 定位而非 right：right 无法表达「避开右侧按钮组」的落点
+    expect(button()?.style.left).not.toBe('');
     expect(style).toContain('position: fixed');
   });
 
@@ -396,5 +397,190 @@ describe('isExternalMutation', () => {
     observer.disconnect();
 
     expect(records.some(record => isExternalMutation(record, element))).toBe(true);
+  });
+});
+
+/* jsdom 不做布局，getBoundingClientRect 恒为 0。浮层避让依赖真实几何，
+ * 因此这里显式打桩，复刻真机量到的 header 占用：
+ * 左侧按钮组 [5..332]，右侧 [1279..1545]（更多/升级/关闭/分享），视口 1553。 */
+describe('浮层避让 header 控件', () => {
+  const VIEWPORT_WIDTH = 1553;
+  const HEADER_HEIGHT = 52;
+  const BUTTON_WIDTH = 80;
+
+  type StubRect = { left: number; top: number; width: number; height: number };
+
+  function stubRect(element: Element, rect: StubRect): void {
+    const r = {
+      x: rect.left,
+      y: rect.top,
+      left: rect.left,
+      top: rect.top,
+      right: rect.left + rect.width,
+      bottom: rect.top + rect.height,
+      width: rect.width,
+      height: rect.height,
+      toJSON: () => r,
+    } as DOMRect;
+
+    vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(r);
+  }
+
+  function overlaps(left: number, width: number, zone: { left: number; right: number }): boolean {
+    return left < zone.right && left + width > zone.left;
+  }
+
+  /**
+   * 推导浮层的实际水平左边界。
+   *
+   * 不能用 style.left 直接判断：旧实现用 right 定位，style.left 为空，
+   * Number.parseFloat 会得到 NaN，紧接着的 overlaps(NaN, …) 恒为 false，
+   * 测试就会在「按钮压住分享」时依然通过（本项目曾出现过的假阳性）。
+   * 因此两种定位方式都必须能算出一个具体坐标。
+   */
+  function resolveFloatingLeft(element: HTMLElement): number {
+    const fromLeft = Number.parseFloat(element.style.left);
+
+    if (Number.isFinite(fromLeft)) {
+      return fromLeft;
+    }
+
+    const fromRight = Number.parseFloat(element.style.right);
+
+    if (Number.isFinite(fromRight)) {
+      // right 定位等价于「视口右边缘减去右边距再减去自身宽度」
+      return VIEWPORT_WIDTH - fromRight - BUTTON_WIDTH;
+    }
+
+    throw new Error(`浮层缺少可解析的水平定位：left="${element.style.left}" right="${element.style.right}"`);
+  }
+
+  function mountHeaderWithControls(): {
+    header: HTMLElement;
+    hiddenSlot: HTMLElement;
+    share: HTMLElement;
+    rightZone: { left: number; right: number };
+    leftZone: { left: number; right: number };
+  } {
+    const header = document.createElement('header');
+
+    // 左侧按钮组
+    const leftZone = { left: 5, right: 332 };
+    const left = document.createElement('button');
+    header.appendChild(left);
+    stubRect(left, { left: leftZone.left, top: 8, width: leftZone.right - leftZone.left, height: 36 });
+
+    // 右侧连续占用：更多 / 升级 / 关闭 / 分享
+    const rightZone = { left: 1279, right: 1545 };
+    const share = document.createElement('button');
+    share.setAttribute('aria-label', '分享');
+    header.appendChild(share);
+    stubRect(share, { left: 1467, top: 8, width: 78, height: 36 });
+
+    const more = document.createElement('button');
+    header.appendChild(more);
+    stubRect(more, { left: rightZone.left, top: 8, width: 104, height: 36 });
+
+    // 只保留隐藏层 —— 强制走浮层兜底
+    const obstacle = document.createElement('div');
+    obstacle.dataset.appShellHeaderObstacle = 'true';
+    const hiddenSlot = mountHiddenMeasurementLayer(obstacle);
+    header.appendChild(obstacle);
+
+    document.body.appendChild(header);
+    stubRect(header, { left: 0, top: 0, width: VIEWPORT_WIDTH, height: HEADER_HEIGHT });
+
+    return { header, hiddenSlot, share, rightZone, leftZone };
+  }
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    document.getElementById(BUTTON_STYLE_ID)?.remove();
+    observers = [];
+    trackObservers();
+
+    Object.defineProperty(window, 'innerWidth', {
+      value: VIEWPORT_WIDTH,
+      configurable: true,
+      writable: true,
+    });
+
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(BUTTON_WIDTH);
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(32);
+  });
+
+  afterEach(() => {
+    for (const observer of observers) {
+      observer.disconnect();
+    }
+
+    vi.restoreAllMocks();
+    document.body.innerHTML = '';
+  });
+
+  it('浮层不遮挡右侧的「分享」按钮', async () => {
+    const { rightZone } = mountHeaderWithControls();
+
+    mountCurrentExportButton(() => {});
+    await settle();
+
+    const element = button() as HTMLButtonElement;
+
+    expect(element.getAttribute('data-cgpt-export-fallback')).toBe('true');
+
+    const left = resolveFloatingLeft(element);
+
+    expect(overlaps(left, BUTTON_WIDTH, rightZone)).toBe(false);
+  });
+
+  it('浮层也不遮挡左侧按钮组', async () => {
+    const { leftZone } = mountHeaderWithControls();
+
+    mountCurrentExportButton(() => {});
+    await settle();
+
+    const element = button() as HTMLButtonElement;
+    const left = resolveFloatingLeft(element);
+
+    expect(overlaps(left, BUTTON_WIDTH, leftZone)).toBe(false);
+  });
+
+  it('带内有空位时落在 header 垂直中线附近', async () => {
+    mountHeaderWithControls();
+
+    mountCurrentExportButton(() => {});
+    await settle();
+
+    const element = button() as HTMLButtonElement;
+    const top = Number.parseFloat(element.style.top);
+
+    // header 高 52、按钮高 32 → 中线 (52-32)/2 = 10
+    expect(top).toBe(10);
+  });
+
+  it('整条 header 塞满时退到 header 下方，而不是压在控件上', async () => {
+    const header = document.createElement('header');
+
+    // 从左到右完全占满，没有任何空洞
+    const full = document.createElement('button');
+    header.appendChild(full);
+    stubRect(full, { left: 0, top: 0, width: VIEWPORT_WIDTH, height: HEADER_HEIGHT });
+
+    const obstacle = document.createElement('div');
+    obstacle.dataset.appShellHeaderObstacle = 'true';
+    mountHiddenMeasurementLayer(obstacle);
+    header.appendChild(obstacle);
+
+    document.body.appendChild(header);
+    stubRect(header, { left: 0, top: 0, width: VIEWPORT_WIDTH, height: HEADER_HEIGHT });
+
+    mountCurrentExportButton(() => {});
+    await settle();
+
+    const element = button() as HTMLButtonElement;
+    const top = Number.parseFloat(element.style.top);
+
+    // header 底边 52 + 间隙 8 = 60
+    expect(top).toBe(60);
   });
 });
