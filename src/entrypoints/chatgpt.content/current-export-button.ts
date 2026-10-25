@@ -100,6 +100,22 @@ export type MountResult = {
   moved: boolean;
 };
 
+/* checkVisibility 的选项名在实现史上换过两轮，必须同时传两套名字：
+ *
+ *   Chrome 105+ / Firefox 106-121   checkOpacity / checkVisibilityCSS
+ *   Chrome 121+ / Firefox 122+      opacityProperty / visibilityProperty
+ *
+ * 字典里未定义的成员会被静默忽略，所以两套一起传对两边都正确。
+ * 只传新名字是 2026-10 的真实故障：Firefox 106-121 会忽略 visibilityProperty，
+ * 只剩 opacity 检查生效，于是「visibility: hidden 的测量层」被判定为可见，
+ * 按钮又挂回隐藏层 —— Chrome 因为 105 就支持新名字而不受影响。 */
+const CHECK_VISIBILITY_OPTIONS = {
+  opacityProperty: true,
+  visibilityProperty: true,
+  checkOpacity: true,
+  checkVisibilityCSS: true,
+} as const;
+
 /**
  * 元素是否真正可见。优先用 checkVisibility（能感知祖先链上的
  * visibility/display/content-visibility/opacity），不可用时回退到
@@ -110,7 +126,7 @@ export type MountResult = {
  */
 export function isElementVisible(element: Element): boolean {
   if (typeof element.checkVisibility === 'function') {
-    return element.checkVisibility({ visibilityProperty: true, checkOpacity: true });
+    return element.checkVisibility(CHECK_VISIBILITY_OPTIONS);
   }
 
   return isVisibleByComputedStyle(element);

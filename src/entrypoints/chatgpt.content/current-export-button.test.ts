@@ -360,6 +360,76 @@ describe('isElementVisible', () => {
 
     expect(isElementVisible(element)).toBe(false);
   });
+
+  /* 回归（2026-10，Firefox 专属）：checkVisibility 的选项名有两代。
+   * 旧实现只传新名字 visibilityProperty/opacityProperty，而这两个名字
+   * Firefox 122+ 才认；Firefox 106-121 只认 checkVisibilityCSS/checkOpacity，
+   * 未识别的成员被静默忽略，结果只剩 opacity 检查，隐藏层被判为可见，
+   * 按钮又挂回隐藏测量层。
+   *
+   * 下面的 stub 按 Gecko 的真实语义实现（只认一套名字），
+   * 并断言两代参数名都被实际传入。 */
+  describe('checkVisibility 选项名兼容两代实现', () => {
+    type Options = Record<string, boolean>;
+
+    /** 按指定代数实现 checkVisibility：只认该代的名字，其余忽略 */
+    function stubCheckVisibility(
+      element: Element,
+      generation: 'legacy' | 'current',
+      isHidden: boolean,
+    ): Options[] {
+      const received: Options[] = [];
+
+      Object.defineProperty(element, 'checkVisibility', {
+        configurable: true,
+        value: (options: Options = {}) => {
+          received.push(options);
+
+          const checked = generation === 'legacy'
+            ? options.checkVisibilityCSS === true
+            : options.visibilityProperty === true;
+
+          // 没开启 visibility 检查时无法发现 visibility: hidden
+          return checked ? !isHidden : true;
+        },
+      });
+
+      return received;
+    }
+
+    for (const generation of ['legacy', 'current'] as const) {
+      it(`${generation} 代参数名下依然能识别隐藏层`, () => {
+        const hidden = document.createElement('div');
+        hidden.style.visibility = 'hidden';
+
+        const child = document.createElement('div');
+        hidden.appendChild(child);
+        document.body.appendChild(hidden);
+
+        const received = stubCheckVisibility(child, generation, true);
+
+        expect(isElementVisible(child)).toBe(false);
+        expect(received).toHaveLength(1);
+        expect(received[0].checkVisibilityCSS ?? received[0].visibilityProperty).toBe(true);
+      });
+    }
+
+    it('同一次调用里同时传入两代参数名（不允许只传新名字）', () => {
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+
+      const received = stubCheckVisibility(element, 'current', false);
+
+      isElementVisible(element);
+
+      expect(received[0]).toMatchObject({
+        visibilityProperty: true,
+        opacityProperty: true,
+        checkVisibilityCSS: true,
+        checkOpacity: true,
+      });
+    });
+  });
 });
 
 describe('isExternalMutation', () => {
