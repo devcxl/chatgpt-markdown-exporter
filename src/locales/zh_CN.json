@@ -1,0 +1,97 @@
+{
+  "extName": "ChatGPT Markdown 导出器",
+  "extDescription": "将 ChatGPT 对话导出为 Markdown 文件。支持单条与批量导出，保留代码块、数学公式与多模态占位符。",
+  "extDefaultTitle": "ChatGPT Markdown 导出器",
+  "app": {
+    "name": "ChatGPT Markdown Exporter",
+    "description": "将 ChatGPT 会话导出为 Markdown 文件。"
+  },
+  "common": {
+    "close": "关闭",
+    "export": "导出",
+    "loading": "正在加载…",
+    "noTimeInfo": "无时间信息",
+    "noConversations": "没有可导出的会话。",
+    "refresh": "加载 / 刷新",
+    "selectAll": "全选",
+    "clearSelection": "清空",
+    "exportSelectedZip": "导出所选为 ZIP",
+    "exportSelectedSingle": "导出所选会话",
+    "itemsCount": "会话列表（{count} 条）",
+    "loadMore": "加载更多…"
+  },
+  "options": {
+    "frontmatter": "包含 YAML frontmatter",
+    "timestamps": "包含消息时间",
+    "timestamp24h": "使用 24 小时制"
+  },
+  "popup": {
+    "title": "ChatGPT Exporter",
+    "subtitle": "批量导出面板",
+    "detecting": "正在检测当前页面…",
+    "connecting": "正在连接…",
+    "connectionFailed": "连接失败，请确认当前在 ChatGPT 页面。",
+    "loadedCount": "会话列表已加载，共 {count} 条。",
+    "loadingList": "正在加载会话列表…",
+    "loadFailed": "加载失败。",
+    "loadFailedWithError": "加载失败：{error}",
+    "selectAtLeastOne": "请先至少选择一个会话。",
+    "exportingCount": "正在导出 {count} 个会话…",
+    "exportedCount": "已导出 {count} 个会话。",
+    "exportFailed": "导出失败。",
+    "exportFailedWithError": "导出失败：{error}",
+    "clickToLoad": "点击「加载 / 刷新」获取会话列表。",
+    "batchExportRange": "批量导出（最近 {count} 条）"
+  },
+  "panel": {
+    "title": "ChatGPT Exporter",
+    "subtitle": "批量导出面板",
+    "exportCurrentMd": "导出当前会话 Markdown",
+    "exportingCurrent": "正在导出当前会话…",
+    "currentExported": "当前会话已导出。",
+    "downloadFailed": "下载失败。",
+    "batchExportFailed": "批量导出失败。",
+    "loadingList": "正在加载最近 {count} 条会话…",
+    "loadingProgress": "已加载 {count} 条会话…",
+    "loadedCount": "会话列表已加载，共 {count} 条。",
+    "clickToLoadTip": "点击\"加载 / 刷新\"后显示会话列表。",
+    "openTip": "点击扩展图标打开批量导出列表。",
+    "exportingProgress": "正在导出 {current}/{total}…",
+    "exportedCount": "已导出 {count} 个会话。",
+    "exportedPartial": "已导出 {success} 个会话，失败 {failed} 个。失败详情已输出到控制台。"
+  },
+  "background": {
+    "noChatGPTTab": "未找到 ChatGPT 标签页，请先打开 chatgpt.com。",
+    "connectionFailedInit": "未能连接到 ChatGPT 页面，请刷新后重试。",
+    "communicationFailed": "通信失败：{error}",
+    "invalidDownloadParams": "无效的下载参数。",
+    "invalidZipParams": "无效的 ZIP 下载参数。",
+    "fileTooLarge": "单个 Markdown 文件过大，已拒绝下载。",
+    "noFiles": "没有可下载的文件。",
+    "tooManyFiles": "单次最多只能导出 {max} 个会话。",
+    "fileTooLargeNested": "文件过大：{filename}",
+    "contentTooLarge": "导出内容总量过大，请缩小批量范围后重试。"
+  },
+  "api": {
+    "accessTokenFailed": "获取 ChatGPT 访问令牌失败，请确认你已登录并且页面已加载完成。",
+    "apiRequestFailed": "ChatGPT API 请求失败：{status} {statusText}{detail}",
+    "noChatId": "当前页面没有会话 ID，请先打开一个 ChatGPT 会话。",
+    "sharePageReadFailed": "读取分享页会话数据失败，请刷新页面后重试。",
+    "unsupportedOrigin": "不支持的 ChatGPT 域名：{origin}"
+  },
+  "markdown": {
+    "authorChatGPT": "ChatGPT",
+    "authorUser": "用户",
+    "authorPlugin": "插件",
+    "codeLabel": "Code:",
+    "resultLabel": "Result:",
+    "audioLabel": "audio",
+    "unsupportedMultimodal": "[不支持的多模态内容：{type}]",
+    "unsupportedContent": "[不支持的内容类型：{type}]",
+    "fallbackTitle": "ChatGPT Conversation"
+  },
+  "process": {
+    "fallbackTitle": "ChatGPT Conversation",
+    "startNodeError": "未能找到对话起始节点。"
+  }
+}
