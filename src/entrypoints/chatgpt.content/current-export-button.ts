@@ -2,8 +2,8 @@ import { t } from '../../i18n';
 
 /* 导出按钮的挂载策略。
  *
- * 背景（2026-10 回归）：ChatGPT 的应用外壳头部把同一个按钮组渲染成两层，
- * 两层都放在同一网格单元（grid-column/row 都是 1）里叠放：
+ * ChatGPT 的应用外壳头部把按钮组渲染成两层，两层同处一个网格单元（grid-column/row
+ * 都是 1）里叠放：
  *
  *   [data-app-shell-header-obstacle]        ← display: grid
  *   ├── div.invisible ...                   ← 隐藏的「测量层」，给 View Transitions 做快照
@@ -11,28 +11,43 @@ import { t } from '../../i18n';
  *   └── div.relative ...                    ← 可见层
  *       └── [data-app-shell-header-slot-content] .gap-toolbar-action
  *
- * 旧实现用 querySelector 取首个匹配，必然命中前面那个隐藏层，按钮挂上去后
- * visibility: hidden，表现为「按钮消失」。
- *
- * 因此这里不再假设「第一个匹配就是对的」，而是分两级降级：
- *   1. 原生插槽：候选里挑第一个真正可见的（尽力争取最佳观感）
- *   2. 浮动兜底：按 header 的几何位置 fixed 定位，不寄生在宿主 DOM 里
+ * 但页面里有多个 obstacle，左侧边栏也有同样的 slot-content 结构（详见
+ * TOOLBAR_OBSTACLE_SELECTOR 处的真实尺寸说明）。因此定位分三级：
+ *   1. 右侧「更多 / 分享」工具栏 —— 唯一的正确挂载点
+ *   2. 旧版对话头部 #conversation-header-actions（灰度期兜底）
+ *   3. 浮层：按 header 几何位置 fixed 定位，不寄生在宿主 DOM 里
  *      —— 连 header 都定位不到时贴右上角，保证功能永不消失
  *
- * 第 2 级是「契约」而非「尽力而为」：无论 OpenAI 怎么重构头部，
+ * 第 3 级是「契约」而非「尽力而为」：无论 OpenAI 怎么重构头部，
  * 用户至少还能点击导出。 */
 
 const CURRENT_EXPORT_BUTTON_ID = 'cgpt-export-current-button';
 const CURRENT_EXPORT_BUTTON_STYLE_ID = 'cgpt-export-current-button-style';
 const CURRENT_EXPORT_FALLBACK_ATTR = 'data-cgpt-export-fallback';
 
-/* 语义属性优先：.gap-toolbar-action 只是样式类名，改版就可能消失；
- * data-app-shell-header-slot-content 描述的是「插槽内容」这一结构事实。 */
-const SLOT_SELECTORS = [
-  '[data-app-shell-header-obstacle="true"] [data-app-shell-header-slot-content="true"]',
-  '[data-app-shell-header-slot-content="true"].gap-toolbar-action',
-] as const;
+/* 挂载点：右侧「更多 … 分享」工具栏。
+ *
+ * 2026-10 真机（Chrome 155，chatgpt.com/c/...）实测头部有 3 个 obstacle：
+ *
+ *   obstacle[0] 左侧边栏  [0,0,340,52]   含 data-app-shell-header-slot-content
+ *   obstacle[1] 右侧工具栏 [772,8,266,36] 只含 class ms-auto + gap-toolbar-action
+ *   obstacle[2] 空壳     [1046,0,0,52]   含 data-app-shell-header-slot-content
+ *
+ * 旧实现按 obstacle+slot-content 取「第一个可见的」，永远命中左侧边栏，
+ * 按钮被侧边栏 logo 完全盖住（elementsFromPoint 只命中 logo 的 svg），
+ * 视觉上就表现为「右上角只有分享，没有导出」。真实 DOM 里其实已经挂上了。
+ *
+ * 而且右侧工具栏根本没有 slot-content 属性 —— 它和左侧边栏是两个不同的
+ * 组件。所以定位必须换个语义：找「带 ms-auto 且自身就是 gap-toolbar-action
+ * 容器」的那个 obstacle，它才是「更多 / 分享」所在的右侧按钮带。
+ *
+ * 不用中英文 aria-label（如「分享」）做锚点：那会随界面语言失效。
+ * ms-auto 是布局意图（把这组推到右边），gap-toolbar-action 是按钮带语义。 */
+const TOOLBAR_OBSTACLE_SELECTOR = '[data-app-shell-header-obstacle="true"]';
+const TOOLBAR_LAYOUT_CLASS = 'ms-auto';
+const TOOLBAR_GROUP_CLASS = 'gap-toolbar-action';
 
+/* 旧版对话头部（灰度期兜底路径） */
 const LEGACY_HEADER_SELECTOR = '#conversation-header-actions';
 const TITLEBAR_SELECTOR = 'header, [data-app-shell-main-titlebar], [data-app-shell-titlebar="true"]';
 
@@ -148,13 +163,49 @@ function isVisibleByComputedStyle(element: Element): boolean {
   return true;
 }
 
-function findSlotTarget(): HTMLElement | null {
-  for (const selector of SLOT_SELECTORS) {
-    for (const candidate of document.querySelectorAll<HTMLElement>(selector)) {
-      if (isElementVisible(candidate)) {
-        return candidate;
-      }
+/**
+ * 找出右侧「更多 … 分享」工具栏：带 ms-auto 布局、自身即 gap-toolbar-action 容器、
+ * 且真正可见的 obstacle。
+ *
+ * 真机实测该元素总有且仅有一个（对话页、首页、分享页均成立），
+ * 但页面切换期间可能有多个候选，因此按「有按钮的优先」选出确定的那一个。
+ */
+export function findToolbarTarget(): HTMLElement | null {
+  const candidates: HTMLElement[] = [];
+
+  for (const obstacle of document.querySelectorAll<HTMLElement>(TOOLBAR_OBSTACLE_SELECTOR)) {
+    const classes = obstacle.classList;
+
+    if (!classes.contains(TOOLBAR_LAYOUT_CLASS) || !classes.contains(TOOLBAR_GROUP_CLASS)) {
+      continue;
     }
+
+    if (!isElementVisible(obstacle)) {
+      continue;
+    }
+
+    candidates.push(obstacle);
+  }
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  // 含交互按钮的那个才是真实工具栏；空壳（宽度为 0）排在后面
+  const withButtons = candidates.find(candidate => candidate.querySelector('button') !== null);
+
+  return withButtons ?? candidates[0];
+}
+
+/**
+ * 决定按钮挂到哪里：优先右侧「更多 / 分享」工具栏，其次旧版头部。
+ * 都找不到时返回 null，由 attachTo 降级为浮层，保证功能不消失。
+ */
+function findMountTarget(): HTMLElement | null {
+  const toolbar = findToolbarTarget();
+
+  if (toolbar) {
+    return toolbar;
   }
 
   const legacy = document.querySelector<HTMLElement>(LEGACY_HEADER_SELECTOR);
@@ -320,7 +371,7 @@ function attachTo(button: HTMLButtonElement, target: HTMLElement | null): MountR
 
 /** 幂等：把按钮收敛到当前最优落点。返回本次是否发生移动。 */
 export function reconcileButtonPosition(button: HTMLButtonElement): MountResult {
-  return attachTo(button, findSlotTarget());
+  return attachTo(button, findMountTarget());
 }
 
 export function mountCurrentExportButton(

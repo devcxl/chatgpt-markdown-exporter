@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   mountCurrentExportButton,
+  findToolbarTarget,
   isElementVisible,
   isExternalMutation,
   reconcileButtonPosition,
@@ -71,24 +72,60 @@ function mountVisibleLayer(obstacle: HTMLElement): HTMLElement {
 }
 
 /**
- * 复刻 2026-10 的真实头部：obstacle 是 grid，隐藏层在 DOM 顺序上排在可见层之前。
- * 隐藏层故意先插入，才能暴露「取首个匹配」的 bug。
+ * 复刻 2026-10 真机（Chrome 155）的头结构。真机实测有 3 个 obstacle：
+ *
+ *   [0] 左侧边栏   有 data-app-shell-header-slot-content（含隐藏层+可见层）
+ *   [1] 右侧工具栏 class="ms-auto flex shrink-0 items-center gap-toolbar-action"
+ *                  内部是「更多 / 关闭升级提醒 / 分享」，没有 slot-content
+ *   [2] 空壳       有 slot-content，但宽度为 0
+ *
+ * 关键点：左侧边栏在 DOM 顺序上排在前面，且它也有 slot-content。
+ * 旧实现按 slot-content 取首个可见元素，必然选中这里 —— 按钮被侧边栏 logo
+ * 盖住，视觉上就表现为「右上角没有导出按钮」。因此 fixture 必须保留这个顺序，
+ * 否则该回归不会被覆盖。
  */
-function mountAppShellHeader(): { hiddenSlot: HTMLElement; visibleSlot: HTMLElement } {
+function mountAppShellHeader(): {
+  sidebarHiddenSlot: HTMLElement;
+  sidebarVisibleSlot: HTMLElement;
+  toolbar: HTMLElement;
+  emptyObstacle: HTMLElement;
+} {
   const titlebar = document.createElement('div');
   titlebar.dataset.appShellMainTitlebar = 'true';
 
-  const obstacle = document.createElement('div');
-  obstacle.dataset.appShellHeaderObstacle = 'true';
-  obstacle.style.display = 'grid';
+  // [0] 左侧边栏：grid + 隐藏测量层 + 可见层
+  const sidebar = document.createElement('div');
+  sidebar.dataset.appShellHeaderObstacle = 'true';
+  sidebar.className = 'pointer-events-none relative grid min-w-max h-full shrink-0';
+  sidebar.style.display = 'grid';
 
-  const hiddenSlot = mountHiddenMeasurementLayer(obstacle);
-  const visibleSlot = mountVisibleLayer(obstacle);
+  const sidebarHiddenSlot = mountHiddenMeasurementLayer(sidebar);
+  const sidebarVisibleSlot = mountVisibleLayer(sidebar);
 
-  titlebar.appendChild(obstacle);
+  // [1] 右侧「更多 / 分享」工具栏：自身就是 gap-toolbar-action 容器
+  const toolbar = document.createElement('div');
+  toolbar.dataset.appShellHeaderObstacle = 'true';
+  toolbar.className = 'ms-auto flex shrink-0 items-center gap-toolbar-action';
+
+  const shareGroup = document.createElement('div');
+  shareGroup.className = 'pointer-events-auto flex shrink-0 items-center no-drag';
+  const shareButton = document.createElement('button');
+  shareButton.setAttribute('aria-label', '分享');
+  shareButton.textContent = '分享';
+  shareGroup.appendChild(shareButton);
+  toolbar.appendChild(shareGroup);
+
+  // [2] 空壳 obstacle：也有 slot-content，但宽度为 0
+  const emptyObstacle = document.createElement('div');
+  emptyObstacle.dataset.appShellHeaderObstacle = 'true';
+  emptyObstacle.className = 'pointer-events-none relative grid min-w-max ms-auto shrink-0';
+  emptyObstacle.style.display = 'grid';
+  mountVisibleLayer(emptyObstacle);
+
+  titlebar.append(sidebar, toolbar, emptyObstacle);
   document.body.appendChild(titlebar);
 
-  return { hiddenSlot, visibleSlot };
+  return { sidebarHiddenSlot, sidebarVisibleSlot, toolbar, emptyObstacle };
 }
 
 /** 旧版对话头部（灰度期兜底路径） */
@@ -127,13 +164,24 @@ describe('mountCurrentExportButton', () => {
     document.body.innerHTML = '';
   });
 
-  it('把按钮挂载到可见层，而不是前面的隐藏测量层', async () => {
-    const { hiddenSlot, visibleSlot } = mountAppShellHeader();
+  it('把按钮挂到右侧「更多 / 分享」工具栏，而不是左侧边栏', async () => {
+    const { toolbar, sidebarVisibleSlot } = mountAppShellHeader();
     mountCurrentExportButton(() => {});
     await settle();
 
-    expect(button()?.parentElement).toBe(visibleSlot);
-    expect(button()?.parentElement).not.toBe(hiddenSlot);
+    expect(button()?.parentElement).toBe(toolbar);
+    // 回归：左侧边栏也带 slot-content，旧实现会选中它，结果按钮被 logo 盖住
+    expect(button()?.parentElement).not.toBe(sidebarVisibleSlot);
+  });
+
+  it('不挂到隐藏测量层，也不挂到宽度为 0 的空壳 obstacle', async () => {
+    const { toolbar, sidebarHiddenSlot, emptyObstacle } = mountAppShellHeader();
+    mountCurrentExportButton(() => {});
+    await settle();
+
+    expect(button()?.parentElement).toBe(toolbar);
+    expect(button()?.parentElement).not.toBe(sidebarHiddenSlot);
+    expect(emptyObstacle.contains(button())).toBe(false);
   });
 
   it('挂载后按钮确实可见（回归：曾挂在 visibility: hidden 的祖先下）', async () => {
@@ -179,9 +227,9 @@ describe('mountCurrentExportButton', () => {
     await settle();
     expect(button()?.getAttribute('data-cgpt-export-fallback')).toBe('true');
 
-    const { visibleSlot } = mountAppShellHeader();
+    const { toolbar } = mountAppShellHeader();
     await vi.waitFor(() => {
-      expect(button()?.parentElement).toBe(visibleSlot);
+      expect(button()?.parentElement).toBe(toolbar);
     });
 
     expect(button()?.hasAttribute('data-cgpt-export-fallback')).toBe(false);
@@ -197,13 +245,13 @@ describe('mountCurrentExportButton', () => {
     expect(button()?.parentElement).toBe(header);
   });
 
-  it('新旧头部同时存在时优先新版可见层', async () => {
+  it('新旧头部同时存在时优先新版右侧工具栏', async () => {
     mountLegacyHeader();
-    const { visibleSlot } = mountAppShellHeader();
+    const { toolbar } = mountAppShellHeader();
     mountCurrentExportButton(() => {});
     await settle();
 
-    expect(button()?.parentElement).toBe(visibleSlot);
+    expect(button()?.parentElement).toBe(toolbar);
   });
 
   it('头部尚未渲染时不抛错，按钮走浮动兜底而不是游离丢失', async () => {
@@ -277,10 +325,10 @@ describe('mountCurrentExportButton', () => {
 
     // ChatGPT 重建头部
     document.body.innerHTML = '';
-    const { visibleSlot } = mountAppShellHeader();
+    const { toolbar } = mountAppShellHeader();
 
     await vi.waitFor(() => {
-      expect(button()?.parentElement).toBe(visibleSlot);
+      expect(button()?.parentElement).toBe(toolbar);
     });
   });
 
@@ -291,6 +339,57 @@ describe('mountCurrentExportButton', () => {
 
     expect(button()?.getAttribute('aria-label')).toBeTruthy();
     expect(button()?.textContent?.trim()).not.toBe('');
+  });
+});
+
+describe('定位右侧工具栏（findToolbarTarget）', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('只认 ms-auto + gap-toolbar-action 的 obstacle', () => {
+    const { toolbar } = mountAppShellHeader();
+
+    expect(findToolbarTarget()).toBe(toolbar);
+  });
+
+  it('跳过带 slot-content 的左侧边栏（它没有 ms-auto + gap-toolbar-action）', () => {
+    const { sidebarVisibleSlot } = mountAppShellHeader();
+    const target = findToolbarTarget();
+
+    expect(target).not.toBeNull();
+    expect(target).not.toBe(sidebarVisibleSlot);
+    // 左侧边栏内部不应被当成目标
+    expect(sidebarVisibleSlot.contains(target)).toBe(false);
+  });
+
+  it('多个候选中优先选含按钮的那个（跳过宽度为 0 的空壳）', () => {
+    const { toolbar, emptyObstacle } = mountAppShellHeader();
+
+    // 让空壳也带上 ms-auto + gap-toolbar-action，变成合法候选
+    emptyObstacle.classList.add('ms-auto', 'gap-toolbar-action');
+
+    expect(findToolbarTarget()).toBe(toolbar);
+  });
+
+  it('目标不可见时不选中（隐藏工具栏应被跳过）', () => {
+    const { toolbar } = mountAppShellHeader();
+
+    toolbar.style.visibility = 'hidden';
+
+    expect(findToolbarTarget()).toBeNull();
+  });
+
+  it('没有工具栏时回退到旧版头部', () => {
+    const legacy = mountLegacyHeader();
+
+    expect(findToolbarTarget()).toBeNull();
+    expect(reconcileButtonPosition(document.createElement('button')).target).toBe('slot');
+    expect(legacy.contains(document.querySelector(`#${BUTTON_ID}`))).toBe(false);
   });
 });
 
@@ -305,7 +404,7 @@ describe('reconcileButtonPosition', () => {
   });
 
   it('幂等：已经位于最优点时不再移动', async () => {
-    const { visibleSlot } = mountAppShellHeader();
+    const { toolbar } = mountAppShellHeader();
     const element = document.createElement('button');
 
     const first = reconcileButtonPosition(element);
@@ -313,7 +412,7 @@ describe('reconcileButtonPosition', () => {
 
     expect(first).toEqual({ target: 'slot', moved: true });
     expect(second).toEqual({ target: 'slot', moved: false });
-    expect(element.parentElement).toBe(visibleSlot);
+    expect(element.parentElement).toBe(toolbar);
   });
 
   it('宿主反复抖动时不会产生自激移动', async () => {
