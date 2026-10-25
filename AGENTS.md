@@ -87,7 +87,8 @@ src/
 │   ├── zip.ts
 │   ├── chatgpt-types.ts         # Shared ChatGPT API types
 │   └── zip-core.test.ts
-└── i18n/                        # Custom i18n (not WXT's built-in)
+├── locales/                     # i18n 文案唯一来源（zh_CN.json / en.json）
+└── i18n/                        # t() 门面；底层用 @wxt-dev/i18n
 ```
 
 ## CI pipeline (`.github/workflows/ci.yml`)
@@ -99,7 +100,9 @@ Order: `pnpm install` → `pnpm typecheck` → `pnpm lint` → `pnpm build` (no 
 - 测试文件与被测模块同目录、同名 `.test.ts`；`test/setup.ts` 注入 WXT 自动导入的 stub（`defineBackground` / `defineContentScript`）与 `@webext-core/fake-browser` 的 `browser`
 - `vitest.config.ts`：`environment: 'jsdom'`，覆盖率阈值 90%（statements/branches/functions/lines）
 - **注意**：WXT 会把 `src/entrypoints/*.test.ts` 当作入口点，`wxt.config.ts` 的 `entrypoints:found` hook 负责过滤，新增测试文件无需额外配置
-- 纯类型文件（`shared/chatgpt-types.ts`、`i18n/types.ts`）已在 coverage 中排除
+- 纯类型文件（`shared/chatgpt-types.ts`）已在 coverage 中排除
+- `#i18n` 别名由 @wxt-dev/i18n 模块在构建时注入，vitest 里由 `vitest.config.ts` 的 `resolve.alias` 手动指向 `.wxt/i18n/index.ts`
+- `test/setup.ts` 给 fake-browser 补了一个按真实语义工作的 `browser.i18n.getMessage`（读 `src/locales`，点号展平为下划线，未知 key 返回空串）
 
 ## Release flow
 
@@ -180,19 +183,43 @@ Chrome 不支持通过 API 写商店文案（listing），详细说明只能手�
 因为加载到的仍是 wxt 范围内的旧版本。所以必须用 `pnpm.overrides` 把解析强制到 6.1.1。
 将来 wxt 的范围放宽到 6.x 后，这个 override 可以删掉。
 
+## i18n 机制（统一为一套）
+
+`src/locales/*.json` 是**唯一文案来源**，扩展名/描述/工具栏标题与界面文案共用它：
+
+```
+src/locales/en.json + zh_CN.json
+        │
+        ├─ @wxt-dev/i18n 构建时 → 产物 _locales/<locale>/messages.json
+        │                          ↑ manifest 的 __MSG_extName__ 等占位符读这里
+        └─ 代码侧 i18n.t('common.export')
+                                   ↑ 内部调用 browser.i18n.getMessage('common_export')
+```
+
+要点：
+
+- **不要**再建 `public/_locales/`：它会被模块生成的 `_locales` 覆盖而互相冲突
+- key 中的点号在生成时展平为下划线（Chrome message name 只允许 `[A-Za-z0-9_]`），
+  调用处仍写 `t('common.export')` 这种可读形式
+- 支持 `{name}` 命名占位符，缺失的占位符保留原文
+- 语言由**浏览器 UI 语言**决定（`browser.i18n`），不是 `navigator.language`；
+  Chrome 与 Firefox 行为一致。支持的语言只有 `en` / `zh_CN`，其余回退 `en`
+- key 有类型约束（`.wxt/i18n/structure.d.ts`），拼错会在 `pnpm typecheck` 报错
+- 改文案只改 `src/locales/*.json`；新增语言加一个同名文件即可（须是 Chrome 支持的 locale 名）
+
 ## Store metadata（商店文案）
 
 商店页文案与包内 i18n 是**两套独立机制**，详细说明见 [`docs/store-listing.md`](docs/store-listing.md)：
 
 | 字段 | 来源 | 自动化 |
 |---|---|---|
-| 包内文案（扩展名/标题/界面） | `public/_locales/*/messages.json` + `src/i18n/` | 随包生效 |
+| 包内文案（扩展名/标题/界面） | `src/locales/*.json`（唯一来源） | 随包生效 |
 | CWS 简短说明 | `manifest.json` 的 `description` | 拖包自动填入 |
 | CWS 详细说明 | 只能后台手填 | ❌ API 不支持 |
 | AMO name/summary/description | `amo-metadata.json` | ✅ release 流程自动写入 |
 
 - 改 AMO 文案：编辑 `amo-metadata.json`（保持 `supported_locales` 与翻译字段语言键一致）
-- 改包内名称/简短说明：编辑 `public/_locales/*/messages.json`，**英文 ≤ 132 字符**（CWS manifest 硬上限）
+- 改包内名称/简短说明：编辑 `src/locales/en.json`，**英文 ≤ 132 字符**（CWS manifest 硬上限）
 - `version.release_notes` 由 `scripts/prepare-amo-metadata.mjs` 从当次 GitHub Release
   说明动态注入，**不要在 amo-metadata.json 中手写**（其中的値仅作兜底）
 - `src/store-metadata.test.ts` 校验上述约束

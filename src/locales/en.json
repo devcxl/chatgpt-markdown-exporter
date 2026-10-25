@@ -1,0 +1,97 @@
+{
+  "extName": "ChatGPT Markdown Exporter",
+  "extDescription": "Export ChatGPT conversations as Markdown files, with code blocks, math formulas and image placeholders preserved.",
+  "extDefaultTitle": "ChatGPT Markdown Exporter",
+  "app": {
+    "name": "ChatGPT Markdown Exporter",
+    "description": "Export ChatGPT conversations as Markdown files."
+  },
+  "common": {
+    "close": "Close",
+    "export": "Export",
+    "loading": "Loading…",
+    "noTimeInfo": "No time info",
+    "noConversations": "No conversations to export.",
+    "refresh": "Load / Refresh",
+    "selectAll": "Select All",
+    "clearSelection": "Clear",
+    "exportSelectedZip": "Export Selected as ZIP",
+    "exportSelectedSingle": "Export Selected Conversation",
+    "itemsCount": "Conversations ({count})",
+    "loadMore": "Load more…"
+  },
+  "options": {
+    "frontmatter": "Include YAML frontmatter",
+    "timestamps": "Include message timestamps",
+    "timestamp24h": "Use 24-hour format"
+  },
+  "popup": {
+    "title": "ChatGPT Exporter",
+    "subtitle": "Batch Export Panel",
+    "detecting": "Detecting current page…",
+    "connecting": "Connecting…",
+    "connectionFailed": "Connection failed. Please make sure you are on a ChatGPT page.",
+    "loadedCount": "Conversation list loaded: {count} items.",
+    "loadingList": "Loading conversation list…",
+    "loadFailed": "Failed to load.",
+    "loadFailedWithError": "Failed to load: {error}",
+    "selectAtLeastOne": "Please select at least one conversation.",
+    "exportingCount": "Exporting {count} conversations…",
+    "exportedCount": "Exported {count} conversations.",
+    "exportFailed": "Export failed.",
+    "exportFailedWithError": "Export failed: {error}",
+    "clickToLoad": "Click \"Load / Refresh\" to load conversations.",
+    "batchExportRange": "Batch Export (last {count})"
+  },
+  "panel": {
+    "title": "ChatGPT Exporter",
+    "subtitle": "Batch Export Panel",
+    "exportCurrentMd": "Export current conversation as Markdown",
+    "exportingCurrent": "Exporting current conversation…",
+    "currentExported": "Current conversation exported.",
+    "downloadFailed": "Download failed.",
+    "batchExportFailed": "Batch export failed.",
+    "loadingList": "Loading latest {count} conversations…",
+    "loadingProgress": "Loaded {count} conversations…",
+    "loadedCount": "Conversation list loaded: {count} items.",
+    "clickToLoadTip": "Click \"Load / Refresh\" to show the conversation list.",
+    "openTip": "Click the extension icon to open the batch export panel.",
+    "exportingProgress": "Exporting {current}/{total}…",
+    "exportedCount": "Exported {count} conversations.",
+    "exportedPartial": "Exported {success} conversations, {failed} failed. See console for details."
+  },
+  "background": {
+    "noChatGPTTab": "No ChatGPT tab found. Please open chatgpt.com first.",
+    "connectionFailedInit": "Unable to connect to ChatGPT page. Please refresh and try again.",
+    "communicationFailed": "Communication failed: {error}",
+    "invalidDownloadParams": "Invalid download parameters.",
+    "invalidZipParams": "Invalid ZIP download parameters.",
+    "fileTooLarge": "Markdown file too large, download refused.",
+    "noFiles": "No files to download.",
+    "tooManyFiles": "Can only export up to {max} conversations at a time.",
+    "fileTooLargeNested": "File too large: {filename}",
+    "contentTooLarge": "Total export size is too large. Please reduce the batch scope and try again."
+  },
+  "api": {
+    "accessTokenFailed": "Failed to obtain ChatGPT access token. Please make sure you are logged in and the page has loaded.",
+    "apiRequestFailed": "ChatGPT API request failed: {status} {statusText}{detail}",
+    "noChatId": "No conversation ID found on this page. Please open a ChatGPT conversation first.",
+    "sharePageReadFailed": "Failed to read shared conversation data. Please refresh the page and try again.",
+    "unsupportedOrigin": "Unsupported ChatGPT origin: {origin}"
+  },
+  "markdown": {
+    "authorChatGPT": "ChatGPT",
+    "authorUser": "User",
+    "authorPlugin": "Plugin",
+    "codeLabel": "Code:",
+    "resultLabel": "Result:",
+    "audioLabel": "audio",
+    "unsupportedMultimodal": "[Unsupported multimodal content: {type}]",
+    "unsupportedContent": "[Unsupported content type: {type}]",
+    "fallbackTitle": "ChatGPT Conversation"
+  },
+  "process": {
+    "fallbackTitle": "ChatGPT Conversation",
+    "startNodeError": "Failed to find start node."
+  }
+}

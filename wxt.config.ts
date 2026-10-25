@@ -2,6 +2,9 @@ import { defineConfig } from 'wxt';
 
 export default defineConfig({
   srcDir: 'src',
+  // 统一的 i18n 机制：locales/ 是唯一文案来源，
+  // 既生成 manifest 用的 _locales/*/messages.json，也供代码里的 i18n.t() 使用。
+  modules: ['@wxt-dev/i18n/module'],
   // 产物目录改回约定俗成的 dist/（WXT 默认 .output/）。
   // 实际目录仍是 dist/<browser>-mv<version>/，由 outDirTemplate 拼出。
   outDir: 'dist',

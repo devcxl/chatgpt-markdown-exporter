@@ -11,8 +11,29 @@ const metadata = JSON.parse(readFileSync(resolve(root, 'amo-metadata.json'), 'ut
 
 type Messages = Record<string, { message: string }>;
 
+/**
+ * 读取 i18n 文案源（src/locales/*.json）并展平为 Chrome message name。
+ * 统一 i18n 后 public/_locales 已删除，src/locales 是唯一来源。
+ */
 function readLocale(locale: string): Messages {
-  return JSON.parse(readFileSync(resolve(root, 'public/_locales', locale, 'messages.json'), 'utf-8'));
+  const nested = JSON.parse(readFileSync(resolve(root, 'src/locales', `${locale}.json`), 'utf-8'));
+  const out: Messages = {};
+
+  const walk = (obj: Record<string, unknown>, prefix: string): void => {
+    for (const [key, value] of Object.entries(obj)) {
+      const name = prefix ? `${prefix}_${key}` : key;
+
+      if (typeof value === 'object' && value !== null) {
+        walk(value as Record<string, unknown>, name);
+      }
+      else {
+        out[name] = { message: String(value) };
+      }
+    }
+  };
+
+  walk(nested, '');
+  return out;
 }
 
 describe('amo-metadata.json 结构', () => {
