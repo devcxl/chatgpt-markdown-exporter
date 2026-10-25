@@ -555,8 +555,9 @@ pnpm dev              # Chrome dev server + HMR
 pnpm dev:firefox      # Firefox dev server
 
 # 构建（一次产出解包目录 + zip）
-pnpm build            # Chrome：.output/chrome-mv3/ + -chrome.zip
-pnpm build:firefox    # Firefox：.output/firefox-mv2/ + -firefox.zip + -sources.zip
+# 注：2026-10 起 outDir 改为 dist/，Firefox 也改为 MV3，故路径为 dist/*-mv3/。
+pnpm build            # Chrome：dist/chrome-mv3/ + -chrome.zip
+pnpm build:firefox    # Firefox：dist/firefox-mv3/ + -firefox.zip + -sources.zip
 pnpm build:all        # 同时构建 Chrome + Firefox
 
 # 测试与检查

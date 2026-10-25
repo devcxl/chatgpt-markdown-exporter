@@ -65,8 +65,8 @@ jobs:
         with:
           draft: true
           files: |
-            .output/chatgpt-markdown-exporter-*-chrome.zip
-            .output/chatgpt-markdown-exporter-*-firefox.zip
+            dist/chatgpt-markdown-exporter-*-chrome.zip
+            dist/chatgpt-markdown-exporter-*-firefox.zip
           generate_release_notes: true
 
   submit:
@@ -131,7 +131,7 @@ jobs:
           # 与另两个扩展保持一致的提交入口：wxt submit 会原样转发参数给
           # publish-extension（版本由 package.json 的直接依赖 + pnpm.overrides 锁定）。
           npx wxt submit \
-            --chrome-zip ".output/chatgpt-markdown-exporter-${VERSION}-chrome.zip" \
+            --chrome-zip "dist/chatgpt-markdown-exporter-${VERSION}-chrome.zip" \
             --chrome-api-version v2 \
             --chrome-publish-type STAGED_PUBLISH
 
@@ -164,9 +164,9 @@ jobs:
           AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
           npx web-ext sign \
-            --source-dir .output/firefox-mv2 \
+            --source-dir dist/firefox-mv3 \
             --channel=listed \
             --amo-metadata /tmp/amo-metadata.json \
-            --upload-source-code .output/chatgpt-markdown-exporter-*-sources.zip \
+            --upload-source-code dist/chatgpt-markdown-exporter-*-sources.zip \
             --api-key "$AMO_JWT_ISSUER" \
             --api-secret "$AMO_JWT_SECRET"

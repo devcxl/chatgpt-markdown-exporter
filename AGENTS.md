@@ -6,7 +6,7 @@
 |---|---|
 | `pnpm dev` | WXT dev server (HMR) |
 | `pnpm dev:firefox` | WXT dev server (Firefox) |
-| `pnpm build` | 构建 Chrome：解包目录 + `.zip` → `.output/` |
+| `pnpm build` | 构建 Chrome：解包目录 + `.zip` → `dist/` |
 | `pnpm build:firefox` | 构建 Firefox：解包目录 + `.zip` + sources `.zip` |
 | `pnpm build:all` | 构建 Chrome + Firefox |
 | `pnpm typecheck` | `tsc --noEmit` (strict, noUnusedLocals, noUnusedParameters) |
@@ -19,24 +19,46 @@
 
 `build` 系列基于 `wxt zip`，**一次同时产出解包目录与 `.zip`**：
 
-- 解包目录：`.output/chrome-mv3/`、`.output/firefox-mv2/`（用于加载调试）
-- 压缩包：`.output/chatgpt-markdown-exporter-<version>-<browser>.zip`（用于上传商店）
+- 解包目录：`dist/chrome-mv3/`、`dist/firefox-mv3/`（用于加载调试）
+- 压缩包：`dist/chatgpt-markdown-exporter-<version>-<browser>.zip`（用于上传商店）
 - Firefox 额外产出 `-sources.zip`（AMO 源码审核用）
 
 没有「仅解包不产 zip」的命令；需要解包目录直接取上述路径即可。
 
+产物目录由 `wxt.config.ts` 的 `outDir: 'dist'` + `outDirTemplate` 拼出（WXT 默认是`.output/`）。
+Chrome 与 Firefox 都构建为 **Manifest V3**（`manifestVersion: 3`），所以两边目录都是 `-mv3`。
+需要临时回退 MV2 时用 CLI 覆盖（产物会落到 `dist/firefox-mv2/`）：
+
+```bash
+pnpm exec wxt build -b firefox --mv2
+```
+
 WXT framework — entrypoints are auto-detected from `src/entrypoints/`:
 
-1. `src/entrypoints/background.ts` → Service Worker
+1. `src/entrypoints/background.ts` → Background
 2. `src/entrypoints/chatgpt.content/` → Content script (chatgpt.com pages)
 3. `src/entrypoints/popup/` → Extension popup
 
-Output: `.output/{browser}-mv{2,3}/`
+Output: `dist/{browser}-mv{2,3}/`
+
+### Firefox MV3 的特殊之处
+
+Firefox 不支持 `background.service_worker`（[bug 1573659](https://bugzilla.mozilla.org/show_bug.cgi?id=1573659)），
+MV3 下用的是 **event page**（`background.scripts`，非持久）。WXT 的 `addEntrypoints`
+已经按目标浏览器自动选择形式，因此 **不要手写 `manifest.background`**，否则会覆盖掉这段分支逻辑。
+
+对代码的实际影响：background 会被随时卸载，内存状态与定时器不可依赖。
+当前实现中相关约束：
+
+- `readyTabs`（已就绪标签页集合）只是缓存，丢失后可重新探活恢复
+- `revokeObjectUrlAfterDownload` 的兜底定时器在卸载时会消失，但对象 URL 本身属于
+  被卸载的文档，不需要跨生命周期保留
+- 下载结果通过 `runtime.onMessage` 返回 Promise 传递，不依赖全局状态
 
 ## Loading the extension
 
-- **Chrome**: `chrome://extensions` → Load unpacked → select `.output/chrome-mv3/`
-- **Firefox**: `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → select `.output/firefox-mv2/manifest.json`
+- **Chrome**: `chrome://extensions` → Load unpacked → select `dist/chrome-mv3/`
+- **Firefox**: `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → select `dist/firefox-mv3/manifest.json`
 
 ## Key architecture
 
@@ -179,6 +201,8 @@ Chrome 不支持通过 API 写商店文案（listing），详细说明只能手�
 
 ## Extension constraints
 
+- Manifest V3（Chrome 与 Firefox 同构）
 - `downloads` + `scripting` permissions
-- Host permissions: `chatgpt.com`, `chat.openai.com`
+- Host permissions: `chatgpt.com`, `chat.openai.com`（MV3 下单独放在 `host_permissions`）
+- Firefox 最低版本 `109.0`（MV3 支持起点），并声明 `data_collection_permissions: none`
 - Content script runs at `document_idle`
