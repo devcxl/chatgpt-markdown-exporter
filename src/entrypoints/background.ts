@@ -17,7 +17,9 @@ import {
 import { buildZipBlobFromEntries } from '../shared/zip';
 import type { NamedZipEntry } from '../shared/files';
 
-const MAX_ZIP_FILES = 100;
+/* 一个项目常有 100–300 个会话，100 这个旧上限会让「导出整个项目」直接失败。
+ * 真正的资源约束是 MAX_ZIP_TOTAL_BYTES（12MB），文件数上限只为防病态输入。 */
+const MAX_ZIP_FILES = 500;
 const MAX_TEXT_BYTES = 8 * 1024 * 1024;
 const MAX_ZIP_TOTAL_BYTES = 12 * 1024 * 1024;
 const CHATGPT_TAB_URL_PATTERNS = [

@@ -125,7 +125,8 @@ chatgpt-project-<项目名>-<时间戳>.zip
 
 - 项目名与标题均过 `sanitize-filename`；项目名为空回退项目 id
 - 图片前缀由 `'ChatGPT/'` 改为 `'<项目名>/'`，Markdown 中的引用保持相对路径（`images.ts` 已保证「.md 与 assets/ 同层」）
-- 新增 `buildProjectMarkdownFilename(projectName, title, chatId, date)`、`buildProjectZipFilename(projectName, date)`
+- 新增 `buildProjectMarkdownFilename(project, title, chatId, date)`、`buildProjectZipFilename(project, date)`；两者都接收 `Project = { id, name }` 而不是裸字符串项目名 —— id 与 name 永远成对出现，且**名为空时要回退 id**，只传 name 做不到
+- 目录名与 ZIP 名共用同一个 `projectDirectoryName()`（`sanitize-filename` + 空名回退），避免两处各写一遍
 - 现有 `buildMarkdownFilename` / `buildZipFilename` 不动（普通批量导出仍用）
 
 ### 5.2 上限
@@ -136,7 +137,7 @@ chatgpt-project-<项目名>-<时间戳>.zip
 | `MAX_ZIP_TOTAL_BYTES` | 12MB | 12MB（不变） | 这是内存与浏览器的实质约束，图片是主要消耗者 |
 | `MAX_TEXT_BYTES`（单文件） | 8MB | 不变 | — |
 
-超字节上限时的错误文案改为提示「该项目过大，请分批选择」。**不做自动分卷**：连续多次触发下载会被浏览器拦截。
+超字节上限沿用现有 `background.contentTooLarge`（`导出内容总量过大，请缩小批量范围后重试`）——这条文案对普通批量导出与项目导出都成立，不为项目单独加分支。**不做自动分卷**：连续多次触发下载会被浏览器拦截。
 
 ### 5.3 frontmatter
 

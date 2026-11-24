@@ -194,14 +194,31 @@ describe('background 下载消息', () => {
     expect(download).not.toHaveBeenCalled();
   });
 
-  it('ZIP 文件数超过 100 时拒绝', async () => {
+  it('ZIP 文件数正好 500 时放行', async () => {
     const download = start();
     (await loadBackground()).default();
 
     const response = await browser.runtime.sendMessage({
       type: 'DOWNLOAD_ZIP',
       filename: 'a.zip',
-      files: Array.from({ length: 101 }, (_, index) => ({
+      files: Array.from({ length: 500 }, (_, index) => ({
+        filename: `a-${index}.md`,
+        content: 'x',
+      })),
+    });
+
+    expect(response).toMatchObject({ ok: true });
+    expect(download).toHaveBeenCalled();
+  });
+
+  it('ZIP 文件数超过 500 时拒绝', async () => {
+    const download = start();
+    (await loadBackground()).default();
+
+    const response = await browser.runtime.sendMessage({
+      type: 'DOWNLOAD_ZIP',
+      filename: 'a.zip',
+      files: Array.from({ length: 501 }, (_, index) => ({
         filename: `a-${index}.md`,
         content: 'x',
       })),

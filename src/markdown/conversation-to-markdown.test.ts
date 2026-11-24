@@ -184,6 +184,27 @@ describe('conversationToMarkdown frontmatter stats', () => {
     expect(extractBody(plain)).not.toContain('```text');
   });
 
+  it('项目导出时 frontmatter 写出 project 与 project_id', () => {
+    const output = conversationToMarkdown(
+      createConversation([createMessage('user', { content_type: 'text', parts: ['hi'] })]),
+      baseOptions,
+      { ...metadata, project: { id: 'g-p-aaa', name: '研究 "A"' } },
+    );
+
+    expect(output).toContain('project: "研究 \\"A\\""');
+    expect(output).toContain('project_id: "g-p-aaa"');
+    // 位置：紧跟 source，位于 model 之前
+    expect(output.indexOf('project:')).toBeGreaterThan(output.indexOf('source:'));
+    expect(output.indexOf('project:')).toBeLessThan(output.indexOf('model:'));
+  });
+
+  it('非项目导出不出现 project 字段', () => {
+    const output = conversationToMarkdown(createFixture(), baseOptions, metadata);
+
+    expect(output).not.toContain('project:');
+    expect(output).not.toContain('project_id:');
+  });
+
   it('outputs nothing stat-related and stays byte-identical when includeFrontmatter is false', () => {
     const output = conversationToMarkdown(
       createFixture(),

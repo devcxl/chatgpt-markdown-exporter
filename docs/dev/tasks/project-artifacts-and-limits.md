@@ -26,8 +26,8 @@ status: ready
 
 ## 实现要点
 
-1. `buildProjectMarkdownFilename(projectName, title, chatId, date)` → `<项目名>/<YYYY-MM-DD>-<标题>.md`；项目名与标题都过 `sanitize-filename`，项目名为空回退 `projectId`（由调用方保证非空）
-2. `buildProjectZipFilename(projectName, date)` → `chatgpt-project-<项目名>-<stamp>.zip`
+1. `buildProjectMarkdownFilename(project, title, chatId, date)` → `<项目名>/<YYYY-MM-DD>-<标题>.md`；项目名与标题都过 `sanitize-filename`，项目名为空回退项目 id（接收 `Project = { id, name }`；只传 name 无法回退）
+2. `buildProjectZipFilename(project, date)` → `chatgpt-project-<项目名>-<stamp>.zip`
 3. 现有 `buildMarkdownFilename` / `buildZipFilename` **不改**（普通批量导出继续用）
 4. frontmatter：仅当 `metadata.project` 存在时输出
    ```yaml
@@ -35,7 +35,7 @@ status: ready
    project_id: "..."
    ```
    位置放在 `source` 之后、`model` 之前；非项目导出不出现，保证现有输出逐字节不变
-5. `MAX_ZIP_FILES = 500`；`MAX_ZIP_TOTAL_BYTES` 保持 12MB；超限文案改为提示「该项目过大，请分批选择」
+5. `MAX_ZIP_FILES = 500`；`MAX_ZIP_TOTAL_BYTES` 保持 12MB；超限**沿用**现有 `background.contentTooLarge`（该文案对普通批量与项目导出都成立，不为项目单独加分支 —— 以 spec §5.2 为准）
 
 ## 测试
 
@@ -48,7 +48,7 @@ status: ready
 | ZIP 名 | `chatgpt-project-<项目名>-<stamp>.zip` |
 | frontmatter 有项目 | 含 `project` / `project_id` 两行且转义正确 |
 | frontmatter 无项目 | 不出现这两行（与旧输出逐字节一致） |
-| 上限 | 500 个文件通过、501 个报错 |
+| 上限 | 500 个文件放行、501 个报错 |
 
 ## 验收
 

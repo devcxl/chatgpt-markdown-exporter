@@ -3,6 +3,8 @@ import {
   buildCurrentMarkdownFilename,
   buildCurrentZipFilename,
   buildMarkdownFilename,
+  buildProjectMarkdownFilename,
+  buildProjectZipFilename,
   buildZipFilename,
   dedupeNamedFiles,
   sanitizeDownloadPath,
@@ -133,5 +135,77 @@ describe('dedupeNamedFiles', () => {
     ]);
 
     expect(result[0]).toEqual({ filename: 'a.md', content: 'x', data: 'base64' });
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  项目产物命名（docs/dev/specs/project-export.md §5.1）              */
+/* ------------------------------------------------------------------ */
+
+describe('buildProjectMarkdownFilename', () => {
+  const project = { id: 'g-p-aaa', name: '我的研究项目' };
+
+  it('按项目名建一层目录，与 assets/ 同层', () => {
+    expect(
+      buildProjectMarkdownFilename(project, 'Hello World', 'chat-1', new Date('2026-11-24T10:00:00Z')),
+    ).toBe('我的研究项目/2026-11-24-Hello World.md');
+  });
+
+  it('标题为空时回退会话 id', () => {
+    expect(
+      buildProjectMarkdownFilename(project, '   ', 'chat-1', new Date('2026-11-24T10:00:00Z')),
+    ).toBe('我的研究项目/2026-11-24-chat-1.md');
+  });
+
+  it('项目名为空时回退项目 id', () => {
+    expect(
+      buildProjectMarkdownFilename({ id: 'g-p-aaa', name: '  ' }, 'T', 'chat-1', new Date('2026-11-24T10:00:00Z')),
+    ).toBe('g-p-aaa/2026-11-24-T.md');
+  });
+
+  it('项目名全部由非法字符组成时回退项目 id', () => {
+    expect(
+      buildProjectMarkdownFilename({ id: 'g-p-aaa', name: '***' }, 'T', 'chat-1', new Date('2026-11-24T10:00:00Z')),
+    ).toBe('g-p-aaa/2026-11-24-T.md');
+  });
+
+  it('项目名与标题里的非法字符被清理，目录仍只有一层', () => {
+    const result = buildProjectMarkdownFilename(
+      { id: 'g-p-aaa', name: 'a/b:c' },
+      'd/e:f',
+      'chat-1',
+      new Date('2026-11-24T10:00:00Z'),
+    );
+
+    expect(result).toBe('abc/2026-11-24-def.md');
+    expect(result.split('/')).toHaveLength(2);
+  });
+});
+
+describe('buildProjectZipFilename', () => {
+  it('带项目名与时间戳', () => {
+    expect(
+      buildProjectZipFilename({ id: 'g-p-aaa', name: '研究' }, new Date('2026-11-24T10:20:30.400Z')),
+    ).toBe('chatgpt-project-研究-2026-11-24T10-20-30-400Z.zip');
+  });
+
+  it('项目名为空时回退项目 id', () => {
+    expect(
+      buildProjectZipFilename({ id: 'g-p-aaa', name: '' }, new Date('2026-11-24T10:20:30.400Z')),
+    ).toBe('chatgpt-project-g-p-aaa-2026-11-24T10-20-30-400Z.zip');
+  });
+
+  it('同名标题经 dedupeNamedFiles 追加序号', () => {
+    const date = new Date('2026-11-24T10:00:00Z');
+    const project = { id: 'g-p-aaa', name: 'P' };
+    const deduped = dedupeNamedFiles([
+      { filename: buildProjectMarkdownFilename(project, 'Same', 'a', date) },
+      { filename: buildProjectMarkdownFilename(project, 'Same', 'b', date) },
+    ]);
+
+    expect(deduped.map(file => file.filename)).toEqual([
+      'P/2026-11-24-Same.md',
+      'P/2026-11-24-Same (2).md',
+    ]);
   });
 });

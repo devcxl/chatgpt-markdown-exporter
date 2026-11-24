@@ -1,10 +1,12 @@
 import { t, getDateLocale } from '../i18n';
 import { countLines, countWords } from './stats';
+import { resolveProjectName } from '../shared/files';
 import type {
   Citation,
   ContentReference,
   ConversationNodeMessage,
   ConversationResult,
+  Project,
 } from '../shared/chatgpt-types';
 
 export type MarkdownOptions = {
@@ -18,6 +20,8 @@ export type MarkdownOptions = {
 export type MarkdownMetadata = {
   sourceUrl?: string;
   exportedAt?: string;
+  /** 项目导出时写入 frontmatter，普通导出不出现这两个字段 */
+  project?: Project;
 };
 
 export function conversationToMarkdown(
@@ -36,6 +40,7 @@ export function conversationToMarkdown(
         '---',
         `title: ${yamlString(conversation.title)}`,
         `source: ${yamlString(source)}`,
+        ...projectFrontmatter(metadata.project),
         `model: ${yamlString(conversation.model)}`,
         `model_slug: ${yamlString(conversation.modelSlug)}`,
         `create_time: ${yamlString(toIso(conversation.createTime))}`,
@@ -51,6 +56,18 @@ export function conversationToMarkdown(
     : '';
 
   return `${frontmatter}# ${conversation.title}\n\n${normalizedContent}\n`;
+}
+
+/** 项目导出才有的两个字段；普通导出返回空数组，保证旧输出逐字节不变 */
+function projectFrontmatter(project?: MarkdownMetadata['project']): string[] {
+  if (!project) {
+    return [];
+  }
+
+  return [
+    `project: ${yamlString(resolveProjectName(project))}`,
+    `project_id: ${yamlString(project.id)}`,
+  ];
 }
 
 function renderContent(
