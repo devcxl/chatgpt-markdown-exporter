@@ -62,6 +62,25 @@
       flex-wrap: wrap;
     }
 
+    .project-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .project-select {
+      flex: 1;
+      min-width: 0;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 7px 8px;
+      font-size: 13px;
+      font-family: inherit;
+      color: #0f172a;
+      background: #fff;
+      cursor: pointer;
+    }
+
     .conversation-list {
       min-height: 120px;
       max-height: 300px;
@@ -163,6 +182,9 @@
       <div class="section-header">
         <span data-role="section-title">批量导出</span>
         <button class="secondary-button" type="button" data-role="refresh"><span data-i18n="common.refresh">加载 / 刷新</span></button>
+      </div>
+      <div class="project-row">
+        <select class="project-select" data-role="project"></select>
       </div>
       <div class="toolbar">
         <button class="secondary-button" type="button" data-role="select-all"><span data-i18n="common.selectAll">全选</span></button>

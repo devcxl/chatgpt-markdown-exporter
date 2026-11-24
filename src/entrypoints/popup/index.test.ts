@@ -412,7 +412,12 @@ describe('popup 分页与刷新', () => {
     list.dispatchEvent(new Event('scroll'));
     await flush();
 
-    expect(send).toHaveBeenCalledTimes(1);
+    // 只数列表请求：初始化还会额外发一次项目列表请求，与分页无关
+    const listCalls = send.mock.calls.filter(
+      call => (call[0] as { type?: string }).type === 'REQUEST_CONVERSATION_LIST',
+    );
+
+    expect(listCalls).toHaveLength(1);
   });
 
   it('刷新清空列表并重新请求第一页', async () => {
@@ -782,5 +787,277 @@ describe('popup 边界分支', () => {
     document.body.innerHTML = '<div></div>';
 
     await expect(import('./index.ts')).rejects.toThrow(/Missing element/);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  项目选择器（docs/dev/specs/project-export.md §6）                   */
+/* ------------------------------------------------------------------ */
+
+describe('popup 项目维度', () => {
+  beforeEach(() => {
+    fakeBrowser.reset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.body.innerHTML = '';
+  });
+
+  function project(id: string, name: string) {
+    return { id, name };
+  }
+
+  /** 列表与项目两路请求各自返回不同数据 */
+  function setProjectAwareHandler(
+    projects: Array<{ id: string; name: string }>,
+    conversationsFor: (options: { projectId?: string }) => Array<{ id: string; title: string; create_time: number }>,
+    projectsFail = false,
+  ) {
+    const spy = vi.fn(async (message: { type: string; projectId?: string }) => {
+      if (message.type === 'REQUEST_PROJECT_LIST') {
+        return projectsFail ? { ok: false, error: '403' } : { ok: true, projects };
+      }
+
+      if (message.type === 'REQUEST_CONVERSATION_LIST') {
+        return { ok: true, conversations: conversationsFor(message) };
+      }
+
+      return { ok: true };
+    });
+
+    fakeBrowser.runtime.sendMessage = spy as never;
+    return spy;
+  }
+
+  function projectSelect(): HTMLSelectElement {
+    return q<HTMLSelectElement>('[data-role=\'project\']');
+  }
+
+  async function selectProject(value: string): Promise<void> {
+    const select = projectSelect();
+    select.value = value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush();
+  }
+
+  it('下拉首项是「全部会话」，其后是项目名', async () => {
+    setProjectAwareHandler(
+      [project('g-p-a', '研究'), project('g-p-b', '工作')],
+      () => [conversation('a')],
+    );
+
+    await loadPopup();
+    await flush();
+
+    const options = [...projectSelect().options];
+
+    expect(options).toHaveLength(3);
+    // 首项固定是「全部会话」，其 value 为空串（= 不带 projectId）
+    expect(options[0].value).toBe('');
+    expect(options.slice(1).map(option => option.textContent)).toEqual(['研究', '工作']);
+    expect(projectSelect().value).toBe('');
+  });
+
+  it('切到项目后按 projectId 重新拉列表并清空已选', async () => {
+    const send = setProjectAwareHandler(
+      [project('g-p-a', '研究')],
+      ({ projectId }) => (projectId ? [conversation('p1'), conversation('p2')] : [conversation('a')]),
+    );
+
+    await loadPopup();
+    await flush();
+
+    // 先在全量列表里勾一个
+    q<HTMLButtonElement>('[data-role=\'select-all\']').click();
+    expect(checkboxes().every(box => box.checked)).toBe(true);
+
+    await selectProject('g-p-a');
+
+    const listCall = send.mock.calls
+      .filter(call => (call[0] as { type?: string }).type === 'REQUEST_CONVERSATION_LIST')
+      .at(-1)?.[0] as { projectId?: string };
+
+    expect(listCall.projectId).toBe('g-p-a');
+    expect(rows()).toHaveLength(2);
+    // 切换项目必须清空选择，否则会把上个项目的会话一起导出去
+    expect(checkboxes().some(box => box.checked)).toBe(false);
+  });
+
+  it('项目模式下导出按钮文案显示项目会话数', async () => {
+    setProjectAwareHandler(
+      [project('g-p-a', '研究')],
+      ({ projectId }) => (projectId ? [conversation('p1'), conversation('p2')] : [conversation('a')]),
+    );
+
+    await loadPopup();
+    await flush();
+    await selectProject('g-p-a');
+
+    expect(exportLabel()).toContain('2');
+  });
+
+  it('项目模式下导出请求带上项目上下文', async () => {
+    const send = setProjectAwareHandler(
+      [project('g-p-a', '研究')],
+      ({ projectId }) => (projectId ? [conversation('p1')] : []),
+    );
+
+    await loadPopup();
+    await flush();
+    await selectProject('g-p-a');
+
+    q<HTMLButtonElement>('[data-role=\'select-all\']').click();
+    q<HTMLButtonElement>('[data-role=\'export-selected\']').click();
+    await flush();
+
+    const exportCall = send.mock.calls.find(
+      call => (call[0] as { type?: string }).type === 'REQUEST_EXPORT_CONVERSATIONS',
+    )?.[0] as { project?: { id: string; name: string } };
+
+    expect(exportCall.project).toEqual({ id: 'g-p-a', name: '研究' });
+  });
+
+  it('切回「全部会话」时清空选择并按 offset 重新加载', async () => {
+    const send = setProjectAwareHandler(
+      [project('g-p-a', '研究')],
+      ({ projectId }) => (projectId ? [conversation('p1')] : [conversation('a')]),
+    );
+
+    await loadPopup();
+    await flush();
+    await selectProject('g-p-a');
+    q<HTMLButtonElement>('[data-role=\'select-all\']').click();
+
+    await selectProject('');
+
+    const listCall = send.mock.calls
+      .filter(call => (call[0] as { type?: string }).type === 'REQUEST_CONVERSATION_LIST')
+      .at(-1)?.[0] as { projectId?: string; offset?: number };
+
+    expect(listCall.projectId).toBeUndefined();
+    expect(listCall.offset).toBe(0);
+    expect(checkboxes().some(box => box.checked)).toBe(false);
+  });
+
+  it('加载中切换项目时，旧请求的结果不会覆盖新项目的列表', async () => {
+    let releaseFirst: () => void = () => {};
+    const firstPageGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    let listCalls = 0;
+
+    fakeBrowser.runtime.sendMessage = (async (message: { type: string; projectId?: string }) => {
+      if (message.type === 'REQUEST_PROJECT_LIST') {
+        return { ok: true, projects: [project('g-p-a', '研究')] };
+      }
+
+      listCalls += 1;
+
+      if (listCalls === 1) {
+        await firstPageGate;
+        return { ok: true, conversations: [conversation('old')], cursor: null };
+      }
+
+      return { ok: true, conversations: [conversation('p1')], cursor: null };
+    }) as never;
+
+    await loadPopup();
+    await flush();
+
+    // 首个请求还挂着就切到项目
+    await selectProject('g-p-a');
+    releaseFirst();
+    await flush();
+    await flush();
+
+    // 旧响应必须被丢弃，否则会出现「列表是旧项目的、projectId 是新的」
+    expect(rows()).toHaveLength(1);
+    expect(rows()[0].textContent).toContain('title-p1');
+    // 旧响应必须被丢弃，否则会出现「列表是旧项目的、projectId 是新的」
+    expect(document.body.textContent).not.toContain('title-old');
+  });
+
+  it('项目列表失败时下拉只剩「全部会话」，状态栏给出可读错误', async () => {
+    setProjectAwareHandler([], () => [conversation('a')], true);
+
+    await loadPopup();
+    await flush();
+
+    expect(projectSelect().options).toHaveLength(1);
+    expect(rows()).toHaveLength(1);
+    // 会话仍可导出，但项目不可用的原因必须让用户看到
+    expect(statusText()).toContain('403');
+    expect(q<HTMLButtonElement>('[data-role=\'export-selected\']').disabled).toBe(false);
+  });
+
+  it('项目模式导出一键导出全部会话（含未滚动加载的页）', async () => {
+    // 第二页：首个列表请求返回 cursor，导出时把剩余页拉完
+    const send = vi.fn(async (message: { type: string; projectId?: string; cursor?: string }) => {
+      if (message.type === 'REQUEST_PROJECT_LIST') {
+        return { ok: true, projects: [project('g-p-a', '研究')] };
+      }
+
+      if (message.projectId && message.cursor === 'c2') {
+        return { ok: true, conversations: [conversation('p3')], cursor: null };
+      }
+
+      if (message.projectId) {
+        return { ok: true, conversations: [conversation('p1'), conversation('p2')], cursor: 'c2' };
+      }
+
+      return { ok: true, conversations: [] };
+    });
+
+    fakeBrowser.runtime.sendMessage = send as never;
+
+    await loadPopup();
+    await flush();
+    await selectProject('g-p-a');
+
+    // 不勾选任何会话，直接点「导出整个项目」
+    q<HTMLButtonElement>('[data-role=\'export-selected\']').click();
+    await flush();
+
+    const exportCall = send.mock.calls.find(
+      call => (call[0] as { type?: string }).type === 'REQUEST_EXPORT_CONVERSATIONS',
+    )?.[0] as unknown as { chatIds: string[] } | undefined;
+
+    expect(exportCall?.chatIds).toEqual(['p1', 'p2', 'p3']);
+  });
+
+  it('项目模式滚动加载更多使用 cursor 而不是 offset', async () => {
+    const send = vi.fn(async (message: { type: string; projectId?: string; cursor?: string }) => {
+      if (message.type === 'REQUEST_PROJECT_LIST') {
+        return { ok: true, projects: [project('g-p-a', '研究')] };
+      }
+
+      if (message.cursor) {
+        return { ok: true, conversations: [conversation('p2')], cursor: null };
+      }
+
+      return { ok: true, conversations: [conversation('p1')], cursor: 'c2' };
+    });
+
+    fakeBrowser.runtime.sendMessage = send as never;
+
+    await loadPopup();
+    await flush();
+    await selectProject('g-p-a');
+
+    const list = q<HTMLDivElement>('[data-role=\'conversation-list\']');
+    Object.defineProperty(list, 'scrollTop', { value: 1000, configurable: true });
+    Object.defineProperty(list, 'clientHeight', { value: 500, configurable: true });
+    Object.defineProperty(list, 'scrollHeight', { value: 1000, configurable: true });
+    list.dispatchEvent(new Event('scroll'));
+    await flush();
+
+    const pagedCall = send.mock.calls
+      .filter(call => (call[0] as { type?: string }).type === 'REQUEST_CONVERSATION_LIST')
+      .at(-1)?.[0] as { cursor?: string; offset?: number };
+
+    expect(pagedCall.cursor).toBe('c2');
+    expect(pagedCall.offset).toBeUndefined();
+    expect(rows()).toHaveLength(2);
   });
 });

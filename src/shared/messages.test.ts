@@ -7,6 +7,7 @@ import {
   isPingExporterPanelMessage,
   isRequestConversationListMessage,
   isRequestExportConversationsMessage,
+  isRequestProjectListMessage,
 } from './messages.ts';
 
 /* 这些类型守卫是 content script / background / popup 三个上下文之间的消息边界，
@@ -109,5 +110,66 @@ describe('isNamedZipEntry', () => {
   it('拒绝非对象', () => {
     expect(isNamedZipEntry(null)).toBe(false);
     expect(isNamedZipEntry('a.md')).toBe(false);
+  });
+});
+
+describe('isRequestProjectListMessage', () => {
+  it('识别项目列表请求', () => {
+    expect(isRequestProjectListMessage({ type: 'REQUEST_PROJECT_LIST' })).toBe(true);
+  });
+
+  it('拒绝其他类型与非对象', () => {
+    expect(isRequestProjectListMessage({ type: 'REQUEST_CONVERSATION_LIST' })).toBe(false);
+    expect(isRequestProjectListMessage(null)).toBe(false);
+    expect(isRequestProjectListMessage('REQUEST_PROJECT_LIST')).toBe(false);
+  });
+});
+
+describe('项目维度的列表与导出请求', () => {
+  it('列表请求可以带 projectId 与 cursor', () => {
+    expect(isRequestConversationListMessage({
+      type: 'REQUEST_CONVERSATION_LIST',
+      projectId: 'g-p-aaa',
+      cursor: 0,
+    })).toBe(true);
+  });
+
+  it('导出请求可以带 project 上下文', () => {
+    expect(isRequestExportConversationsMessage({
+      type: 'REQUEST_EXPORT_CONVERSATIONS',
+      chatIds: ['c1'],
+      project: { id: 'g-p-aaa', name: 'P' },
+    })).toBe(true);
+  });
+
+  it('列表请求的 projectId / cursor 类型不对时被拒绝', () => {
+    expect(isRequestConversationListMessage({
+      type: 'REQUEST_CONVERSATION_LIST',
+      projectId: 123,
+    })).toBe(false);
+    expect(isRequestConversationListMessage({
+      type: 'REQUEST_CONVERSATION_LIST',
+      cursor: { bad: true },
+    })).toBe(false);
+  });
+
+  it('导出请求的 project 字段残缺时被拒绝', () => {
+    expect(isRequestExportConversationsMessage({
+      type: 'REQUEST_EXPORT_CONVERSATIONS',
+      chatIds: ['c1'],
+      project: { id: 'g-p-aaa' },
+    })).toBe(false);
+    expect(isRequestExportConversationsMessage({
+      type: 'REQUEST_EXPORT_CONVERSATIONS',
+      chatIds: ['c1'],
+      project: 'g-p-aaa',
+    })).toBe(false);
+  });
+
+  it('导出请求缺 chatIds 时仍被拒绝（即使带了 project）', () => {
+    expect(isRequestExportConversationsMessage({
+      type: 'REQUEST_EXPORT_CONVERSATIONS',
+      project: { id: 'g-p-aaa', name: 'P' },
+    })).toBe(false);
   });
 });

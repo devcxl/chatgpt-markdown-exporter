@@ -10,10 +10,13 @@ export function buildDownloadMessage(
   files: NamedZipEntry[],
   zipFilename: string,
   saveAs = true,
+  /* 项目导出必须保留目录层级与 ZIP 文件名：单个会话时拍平成 .md 会把
+   * `<项目名>/` 目录整个丢掉，产物与「导出整个项目」的语义不符。 */
+  forceZip = false,
 ): DownloadMarkdownMessage | DownloadZipMessage {
   const [only] = files;
 
-  if (files.length === 1 && only.data === undefined) {
+  if (!forceZip && files.length === 1 && only.data === undefined) {
     return {
       type: 'DOWNLOAD_MARKDOWN',
       file: {

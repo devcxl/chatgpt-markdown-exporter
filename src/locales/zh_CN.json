@@ -42,7 +42,11 @@
     "exportFailed": "导出失败。",
     "exportFailedWithError": "导出失败：{error}",
     "clickToLoad": "点击「加载 / 刷新」获取会话列表。",
-    "batchExportRange": "批量导出（最近 {count} 条）"
+    "batchExportRange": "批量导出（最近 {count} 条）",
+    "projectLabel": "项目",
+    "allConversations": "全部会话",
+    "exportProjectCount": "导出整个项目（{count} 个会话）",
+    "exportProject": "导出整个项目"
   },
   "panel": {
     "title": "ChatGPT Exporter",

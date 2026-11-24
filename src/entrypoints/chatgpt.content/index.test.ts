@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   fetchConversation: vi.fn(),
   fetchConversations: vi.fn(),
   fetchAllConversations: vi.fn(),
+  fetchProjects: vi.fn(),
+  fetchProjectConversations: vi.fn(),
   getCurrentChatId: vi.fn(),
   resolveImagesAsFileRefs: vi.fn(),
   showToast: vi.fn(),
@@ -25,6 +27,8 @@ vi.mock('./api', () => ({
   fetchConversation: mocks.fetchConversation,
   fetchConversations: mocks.fetchConversations,
   fetchAllConversations: mocks.fetchAllConversations,
+  fetchProjects: mocks.fetchProjects,
+  fetchProjectConversations: mocks.fetchProjectConversations,
   getCurrentChatId: mocks.getCurrentChatId,
 }));
 
@@ -479,5 +483,152 @@ describe('content script 当前会话导出', () => {
     finally {
       document.title = originalTitle;
     }
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  项目维度（docs/dev/specs/project-export.md §4.2 / §6）              */
+/* ------------------------------------------------------------------ */
+
+describe('content script 项目维度', () => {
+  beforeEach(() => {
+    fakeBrowser.reset();
+    vi.clearAllMocks();
+    mocks.mountCurrentExportButton.mockImplementation(() => {});
+    mocks.fetchConversation.mockResolvedValue(conversation('chat-1'));
+    mocks.processConversation.mockReturnValue(processed);
+    mocks.conversationToMarkdown.mockReturnValue('# md');
+    mocks.resolveImagesAsFileRefs.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  const projectExport = {
+    type: 'REQUEST_EXPORT_CONVERSATIONS',
+    chatIds: ['chat-1'],
+    includeFrontmatter: true,
+    includeTimestamps: false,
+    timestamp24h: true,
+    fenceMessages: false,
+    project: { id: 'g-p-aaa', name: '我的 项目' },
+  };
+
+  function stubDownload() {
+    const send = vi.fn(async () => ({ ok: true }));
+    fakeBrowser.runtime.sendMessage = send as never;
+    return send;
+  }
+
+  function downloadMessage(send: ReturnType<typeof vi.fn>) {
+    return send.mock.calls
+      .map(call => call[0] as { type?: string; filename?: string; files?: Array<{ filename: string }> })
+      .find(message => message.type === 'DOWNLOAD_MARKDOWN' || message.type === 'DOWNLOAD_ZIP') as
+      { type: string; filename?: string; file?: { filename: string }; files?: Array<{ filename: string }> };
+  }
+
+  it('项目列表请求返回 content 侧拉到的项目', async () => {
+    mocks.fetchProjects.mockResolvedValue([{ id: 'g-p-aaa', name: 'A' }]);
+    const handle = await loadContentScript();
+
+    const response = await handle({ type: 'REQUEST_PROJECT_LIST' });
+
+    expect(response).toEqual({ ok: true, projects: [{ id: 'g-p-aaa', name: 'A' }] });
+  });
+
+  it('项目列表拉取失败时返回错误而不是抛出', async () => {
+    mocks.fetchProjects.mockRejectedValue(new Error('403 forbidden'));
+    const handle = await loadContentScript();
+
+    const response = await handle({ type: 'REQUEST_PROJECT_LIST' });
+
+    expect(response).toMatchObject({ ok: false });
+    expect((response as { error: string }).error).toContain('403');
+  });
+
+  it('列表请求带 projectId 时改走项目会话端点并透传 cursor', async () => {
+    mocks.fetchProjectConversations.mockResolvedValue({
+      items: [{ id: 'c1', title: 'T', create_time: 1 }],
+      cursor: 'next',
+    });
+    const send = vi.fn(async () => ({ ok: true }));
+    fakeBrowser.runtime.sendMessage = send as never;
+    const handle = await loadContentScript();
+
+    const response = await handle({
+      type: 'REQUEST_CONVERSATION_LIST',
+      projectId: 'g-p-aaa',
+      cursor: 'c1',
+    });
+
+    expect(mocks.fetchProjectConversations).toHaveBeenCalledWith('g-p-aaa', 'c1');
+    expect(response).toEqual({
+      ok: true,
+      conversations: [{ id: 'c1', title: 'T', create_time: 1 }],
+      cursor: 'next',
+    });
+  });
+
+  it('单会话项目导出仍打包为 ZIP（保留项目目录层级）', async () => {
+    const send = stubDownload();
+    const handle = await loadContentScript();
+
+    await handle(projectExport);
+
+    const message = downloadMessage(send);
+
+    // 单文件下载默认会拍平成 .md，但项目导出必须保留 <项目名>/ 目录与 ZIP 名，
+    // 否则「导出整个项目」的产物形态与规格 §5.1 不符
+    expect(message.type).toBe('DOWNLOAD_ZIP');
+    expect(message.filename).toMatch(/^chatgpt-project-/);
+    expect(message.files?.[0].filename).toMatch(/^我的 项目\/\d{4}-\d{2}-\d{2}-Title\.md$/);
+  });
+
+  it('带项目导出时图片前缀与 frontmatter 都用项目上下文', async () => {
+    mocks.resolveImagesAsFileRefs.mockImplementation(
+      async (_raw: unknown, entries: Array<{ filename: string; data: string }>) => {
+        entries.push({ filename: '我的 项目/assets/x.png', data: 'data:image/png;base64,AAAA' });
+      },
+    );
+    const send = stubDownload();
+    const handle = await loadContentScript();
+
+    await handle(projectExport);
+
+    expect(mocks.resolveImagesAsFileRefs).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      '我的 项目/',
+    );
+    expect(mocks.conversationToMarkdown).toHaveBeenCalledWith(
+      processed,
+      expect.objectContaining({ fenceMessages: false }),
+      expect.objectContaining({ project: { id: 'g-p-aaa', name: '我的 项目' } }),
+    );
+
+    const zip = downloadMessage(send);
+
+    expect(zip.type).toBe('DOWNLOAD_ZIP');
+    expect(zip.filename).toMatch(/^chatgpt-project-我的 项目-/);
+  });
+
+  it('不带项目导出时仍是 ChatGPT/ 前缀与旧命名', async () => {
+    stubDownload();
+    const handle = await loadContentScript();
+
+    await handle({ ...projectExport, project: undefined });
+
+    expect(mocks.resolveImagesAsFileRefs).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'ChatGPT/',
+    );
+    expect(mocks.conversationToMarkdown).toHaveBeenCalledWith(
+      processed,
+      expect.anything(),
+      { sourceUrl: expect.stringContaining('/c/chat-1') },
+    );
   });
 });

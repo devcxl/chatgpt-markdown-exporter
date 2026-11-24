@@ -478,6 +478,55 @@ describe('background popup 转发', () => {
     });
   });
 
+  it('把项目列表请求转发给 content script', async () => {
+    const send = vi.fn(async () => ({ ok: true, projects: [{ id: 'g-p-a', name: 'A' }] }));
+    fakeBrowser.tabs.sendMessage = send as never;
+    (await loadBackground()).default();
+
+    const response = await browser.runtime.sendMessage({ type: 'REQUEST_PROJECT_LIST' });
+
+    expect(send).toHaveBeenCalledWith(3, { type: 'REQUEST_PROJECT_LIST' });
+    expect(response).toEqual({ ok: true, projects: [{ id: 'g-p-a', name: 'A' }] });
+  });
+
+  it('转发项目会话列表请求时带上 projectId 与 cursor', async () => {
+    const send = vi.fn(async () => ({ ok: true, conversations: [] }));
+    fakeBrowser.tabs.sendMessage = send as never;
+    (await loadBackground()).default();
+
+    await browser.runtime.sendMessage({
+      type: 'REQUEST_CONVERSATION_LIST',
+      projectId: 'g-p-aaa',
+      cursor: 'c1',
+    });
+
+    expect(send).toHaveBeenCalledWith(3, expect.objectContaining({
+      type: 'REQUEST_CONVERSATION_LIST',
+      projectId: 'g-p-aaa',
+      cursor: 'c1',
+    }));
+  });
+
+  it('转发导出请求时带上项目上下文', async () => {
+    const send = vi.fn(async () => ({ ok: true }));
+    fakeBrowser.tabs.sendMessage = send as never;
+    (await loadBackground()).default();
+
+    await browser.runtime.sendMessage({
+      type: 'REQUEST_EXPORT_CONVERSATIONS',
+      chatIds: ['c1'],
+      includeFrontmatter: true,
+      includeTimestamps: false,
+      timestamp24h: true,
+      fenceMessages: false,
+      project: { id: 'g-p-aaa', name: 'P' },
+    });
+
+    expect(send).toHaveBeenCalledWith(3, expect.objectContaining({
+      project: { id: 'g-p-aaa', name: 'P' },
+    }));
+  });
+
   it('已有就绪记录的标签页跳过 PING 探活', async () => {
     fakeBrowser.tabs.query = (async () => [{ id: 3 }]) as never;
     const send = vi.fn(async () => ({ ok: true, conversations: [] }));

@@ -42,7 +42,11 @@
     "exportFailed": "Export failed.",
     "exportFailedWithError": "Export failed: {error}",
     "clickToLoad": "Click \"Load / Refresh\" to load conversations.",
-    "batchExportRange": "Batch Export (last {count})"
+    "batchExportRange": "Batch Export (last {count})",
+    "projectLabel": "Project",
+    "allConversations": "All conversations",
+    "exportProjectCount": "Export entire project ({count} conversations)",
+    "exportProject": "Export entire project"
   },
   "panel": {
     "title": "ChatGPT Exporter",

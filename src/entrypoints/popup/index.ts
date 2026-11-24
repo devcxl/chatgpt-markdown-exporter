@@ -1,4 +1,6 @@
 import { t, i18nPopulate, getDateLocale } from '../../i18n';
+import type { Project } from '../../shared/chatgpt-types';
+import type { ConversationListResponse } from '../../shared/messages';
 
 interface ConversationItem {
   id: string;
@@ -9,6 +11,13 @@ interface ConversationItem {
 
 interface State {
   conversations: ConversationItem[];
+  projects: Project[];
+  /** '' = 全部会话 */
+  selectedProjectId: string;
+  /** 项目模式下的翻页游标；null = 没有更多 */
+  cursor: string | null;
+  /** 项目列表加载失败时的可读错误；不影响批量导出 */
+  projectsError: string;
   selectedIds: Set<string>;
   isLoading: boolean;
   isBusy: boolean;
@@ -18,6 +27,10 @@ interface State {
 
 const state: State = {
   conversations: [],
+  projects: [],
+  selectedProjectId: '',
+  cursor: null,
+  projectsError: '',
   selectedIds: new Set(),
   isLoading: false,
   isBusy: false,
@@ -34,12 +47,20 @@ const clearSelectionBtn = el<HTMLButtonElement>('[data-role=\'clear-selection\']
 const exportBtn = el<HTMLButtonElement>('[data-role=\'export-selected\']');
 const frontmatterInput = el<HTMLInputElement>('[data-role=\'frontmatter\']');
 const timestampsInput = el<HTMLInputElement>('[data-role=\'timestamps\']');
+const projectSelect = el<HTMLSelectElement>('[data-role=\'project\']');
 const timestamp24hInput = el<HTMLInputElement>('[data-role=\'timestamp24h\']');
 const fenceInput = el<HTMLInputElement>('[data-role=\'fence\']');
 
 const exportLabelEl = el<HTMLSpanElement>('[data-role=\'export-selected-label\']');
 
 refreshBtn.addEventListener('click', () => {
+  void loadConversations();
+});
+projectSelect.addEventListener('change', () => {
+  state.selectedProjectId = projectSelect.value;
+  // 切换项目/切回全部会话都必须清空选择，否则会把上一个来源的会话一起导出
+  state.selectedIds.clear();
+  state.cursor = null;
   void loadConversations();
 });
 selectAllBtn.addEventListener('click', () => setAllSelections(true));
@@ -81,57 +102,141 @@ listEl.addEventListener('change', (event) => {
 i18nPopulate(document.body);
 void init();
 
-async function requestConversations(offset: number, limit: number): Promise<{
-  ok: boolean;
-  error?: string;
-  conversations?: ConversationItem[];
-  total?: number | null;
-}> {
+/** 首屏与翻页的页大小；与 background 无关，只决定一次拉多少条 */
+const PAGE_SIZE = 20;
+
+type ListQuery = {
+  projectId?: string;
+  offset?: number;
+  limit?: number;
+  cursor?: string;
+};
+
+async function requestConversationPage(query: ListQuery): Promise<ConversationListResponse> {
+  if (query.projectId) {
+    // 项目会话端点是 cursor 分页，offset/limit 不适用
+    return browser.runtime.sendMessage({
+      type: 'REQUEST_CONVERSATION_LIST',
+      projectId: query.projectId,
+      ...(query.cursor ? { cursor: query.cursor } : {}),
+    });
+  }
+
   return browser.runtime.sendMessage({
     type: 'REQUEST_CONVERSATION_LIST',
-    offset,
-    limit,
+    offset: query.offset,
+    limit: query.limit,
   });
+}
+
+/* 项目列表失败只影响下拉（只剩「全部会话」），批量导出照常可用；
+ * 但错误必须让用户看见，否则「下拉里没有我的项目」无从判断原因。 */
+async function loadProjects(): Promise<void> {
+  try {
+    const result = await browser.runtime.sendMessage({ type: 'REQUEST_PROJECT_LIST' }) as ConversationListResponse;
+
+    if (result?.ok && result.projects) {
+      state.projects = result.projects;
+      state.projectsError = '';
+    }
+    else {
+      state.projectsError = result?.error ?? t('popup.projectsUnavailable');
+    }
+  }
+  catch (error) {
+    state.projectsError = error instanceof Error
+      ? error.message
+      : t('popup.projectsUnavailable');
+  }
+
+  renderProjects();
+}
+
+function renderProjects(): void {
+  const options: HTMLOptionElement[] = [new Option(t('popup.allConversations'), '')];
+
+  for (const project of state.projects) {
+    options.push(new Option(project.name, project.id));
+  }
+
+  projectSelect.setAttribute('aria-label', t('popup.projectLabel'));
+  projectSelect.replaceChildren(...options);
+  projectSelect.value = state.selectedProjectId;
+  projectSelect.disabled = state.isBusy || state.projects.length === 0;
 }
 
 async function init(): Promise<void> {
   setStatus(t('popup.connecting'));
 
-  let result;
+  // 先拿项目列表：失败也要在状态栏说明原因，否则「下拉里没有我的项目」无从判断
+  await loadProjects();
+  await loadConversations();
+}
 
-  try {
-    result = await requestConversations(0, 20);
-  }
-  catch (error) {
-    // sendMessage 在 background 未就绪时会 reject，
-    // 不捕获则弹窗会永久停留在「正在连接⋯」，也没有重试入口
-    showError(error instanceof Error ? error.message : t('popup.connectionFailed'));
-    updateControls();
-    return;
-  }
+/* 请求代次：切换项目/刷新时，仍在飞行中的旧请求其结果必须被丢弃，
+ * 否则会出现「列表是旧项目的、projectId 是新的」这种串台。 */
+let loadGeneration = 0;
 
-  if (!result?.ok) {
-    // 保留界面与重试按钮，仅展示错误
-    showError(result?.error ?? t('popup.connectionFailed'));
-    updateControls();
-    return;
-  }
+async function loadConversations(): Promise<void> {
+  const generation = ++loadGeneration;
 
-  state.contentReady = true;
-  state.conversations = result.conversations ?? [];
-  state.hasMore = state.conversations.length >= 20;
-
+  state.isLoading = true;
+  state.conversations = [];
+  state.selectedIds.clear();
+  state.cursor = null;
+  state.hasMore = true;
   updateControls();
   render();
-  sectionTitleEl.textContent = state.hasMore
-    ? t('common.itemsCount', { count: state.conversations.length })
-    : t('popup.loadedCount', { count: state.conversations.length });
+  setStatus(t('popup.loadingList'));
+  sectionTitleEl.textContent = t('common.loading');
 
-  if (state.conversations.length === 0) {
-    setStatus(t('common.noConversations'), 'warning');
+  try {
+    const result = await requestConversationPage({
+      offset: 0,
+      limit: PAGE_SIZE,
+      projectId: state.selectedProjectId || undefined,
+    });
+
+    if (generation !== loadGeneration) {
+      return;
+    }
+
+    if (!result?.ok) {
+      setStatus(result?.error ?? t('popup.connectionFailed'), 'error');
+      return;
+    }
+
+    state.contentReady = true;
+    state.conversations = result.conversations ?? [];
+    applyPaging(result, state.conversations.length);
+    syncSectionTitle();
+
+    if (state.conversations.length === 0) {
+      setStatus(t('common.noConversations'), 'warning');
+    }
+    else if (state.projectsError) {
+      // 会话能正常导出，但项目下拉不可用，用户需要知道原因
+      setStatus(state.projectsError, 'error');
+    }
+    else {
+      setStatus(t('popup.loadedCount', { count: state.conversations.length }), 'success');
+    }
   }
-  else {
-    setStatus(t('popup.loadedCount', { count: state.conversations.length }), 'success');
+  catch (error) {
+    if (generation !== loadGeneration) {
+      return;
+    }
+
+    // sendMessage 在 background 未就绪时会 reject，
+    // 不捕获则弹窗会永久停留在「正在连接⋯」，也没有重试入口
+    setStatus(t('popup.loadFailedWithError', { error: error instanceof Error ? error.message : String(error) }), 'error');
+  }
+  finally {
+    if (generation === loadGeneration) {
+      state.isLoading = false;
+      updateControls();
+      render();
+    }
   }
 }
 
@@ -140,80 +245,59 @@ async function loadMore(): Promise<void> {
     return;
   }
 
+  const generation = loadGeneration;
   state.isLoading = true;
   setStatus(t('popup.loadingList'));
 
   try {
-    const result = await requestConversations(state.conversations.length, 20);
+    const result = await requestConversationPage(
+      state.selectedProjectId
+        ? { projectId: state.selectedProjectId, cursor: state.cursor ?? undefined }
+        : { offset: state.conversations.length, limit: PAGE_SIZE },
+    );
+
+    if (generation !== loadGeneration) {
+      return;
+    }
 
     if (!result?.ok) {
       setStatus(result?.error ?? t('popup.loadFailed'), 'error');
       return;
     }
 
-    const newItems = result.conversations ?? [];
-    state.conversations = [...state.conversations, ...newItems];
-    state.hasMore = newItems.length >= 20;
-    sectionTitleEl.textContent = state.hasMore
-      ? t('common.itemsCount', { count: state.conversations.length })
-      : t('popup.loadedCount', { count: state.conversations.length });
+    state.conversations = [...state.conversations, ...(result.conversations ?? [])];
+    applyPaging(result, (result.conversations ?? []).length);
+    syncSectionTitle();
     setStatus(t('popup.loadedCount', { count: state.conversations.length }), 'success');
   }
   catch (error) {
     setStatus(t('popup.loadFailedWithError', { error: error instanceof Error ? error.message : String(error) }), 'error');
   }
   finally {
-    state.isLoading = false;
-    updateControls();
-    render();
+    if (generation === loadGeneration) {
+      state.isLoading = false;
+      updateControls();
+      render();
+    }
   }
 }
 
-async function loadConversations(): Promise<void> {
-  if (state.isLoading) {
+/* 两种来源的分页语义不同：普通列表按条数判断还有没有下一页，
+ * 项目会话端点是 cursor 分页，只看服务端有没有给下一个游标。 */
+function applyPaging(result: ConversationListResponse, pageSize: number): void {
+  if (state.selectedProjectId) {
+    state.cursor = result.cursor ?? null;
+    state.hasMore = state.cursor !== null;
     return;
   }
 
-  state.isLoading = true;
-  state.conversations = [];
-  state.selectedIds.clear();
-  state.hasMore = true;
-  updateControls();
-  render();
+  state.hasMore = pageSize >= PAGE_SIZE;
+}
 
-  setStatus(t('popup.loadingList'));
-  sectionTitleEl.textContent = t('common.loading');
-
-  try {
-    const result = await requestConversations(0, 20);
-
-    if (!result?.ok) {
-      setStatus(result?.error ?? t('popup.loadFailed'), 'error');
-      return;
-    }
-
-    state.contentReady = true;
-    state.conversations = result.conversations ?? [];
-    state.hasMore = state.conversations.length >= 20;
-    sectionTitleEl.textContent = state.hasMore
-      ? t('common.itemsCount', { count: state.conversations.length })
-      : t('popup.loadedCount', { count: state.conversations.length });
-
-    if (state.conversations.length === 0) {
-      setStatus(t('common.noConversations'), 'warning');
-    }
-    else {
-      setStatus(t('popup.loadedCount', { count: state.conversations.length }), 'success');
-    }
-  }
-  catch (error) {
-    setStatus(t('popup.loadFailedWithError', { error: error instanceof Error ? error.message : String(error) }), 'error');
-  }
-  finally {
-    state.isLoading = false;
-    updateControls();
-    render();
-  }
+function syncSectionTitle(): void {
+  sectionTitleEl.textContent = state.hasMore
+    ? t('common.itemsCount', { count: state.conversations.length })
+    : t('popup.loadedCount', { count: state.conversations.length });
 }
 
 async function exportSelected(): Promise<void> {
@@ -221,29 +305,37 @@ async function exportSelected(): Promise<void> {
     return;
   }
 
-  const selectedIds = getSelectedIds();
-
-  if (selectedIds.length === 0) {
-    setStatus(t('popup.selectAtLeastOne'), 'warning');
-    return;
-  }
+  const project = state.projects.find(item => item.id === state.selectedProjectId);
 
   state.isBusy = true;
   updateControls();
-  setStatus(t('popup.exportingCount', { count: selectedIds.length }));
 
   try {
+    // 项目模式是「导出整个项目」：先把还没翻到的页拉完，
+    // 否则只导出滚动加载出来的那一部分，产物看起来完整其实缺页。
+    const chatIds = project
+      ? await collectProjectChatIds(project)
+      : getSelectedIds();
+
+    if (chatIds.length === 0) {
+      setStatus(t('popup.selectAtLeastOne'), 'warning');
+      return;
+    }
+
+    setStatus(t('popup.exportingCount', { count: chatIds.length }));
+
     const result = await browser.runtime.sendMessage({
       type: 'REQUEST_EXPORT_CONVERSATIONS',
-      chatIds: selectedIds,
+      chatIds,
       includeFrontmatter: frontmatterInput.checked,
       includeTimestamps: timestampsInput.checked,
       timestamp24h: timestamp24hInput.checked,
       fenceMessages: fenceInput.checked,
+      ...(project ? { project } : {}),
     }) as { ok: boolean; error?: string };
 
     if (result?.ok) {
-      setStatus(t('popup.exportedCount', { count: selectedIds.length }), 'success');
+      setStatus(t('popup.exportedCount', { count: chatIds.length }), 'success');
     }
     else {
       setStatus(result?.error ?? t('popup.exportFailed'), 'error');
@@ -256,6 +348,29 @@ async function exportSelected(): Promise<void> {
     state.isBusy = false;
     updateControls();
   }
+}
+
+/* 项目会话是 cursor 分页的，导出前必须把剩余页拉完。
+ * 已加载的部分直接复用，避免重复请求第一页。 */
+async function collectProjectChatIds(project: Project): Promise<string[]> {
+  const ids = state.conversations.map(item => item.id);
+  let cursor = state.cursor;
+
+  while (cursor) {
+    const page = await requestConversationPage({ projectId: project.id, cursor });
+
+    if (!page?.ok) {
+      throw new Error(page?.error ?? t('popup.loadFailed'));
+    }
+
+    for (const item of page.conversations ?? []) {
+      ids.push(item.id);
+    }
+
+    cursor = page.cursor ?? null;
+  }
+
+  return ids;
 }
 
 function setAllSelections(checked: boolean): void {
@@ -339,9 +454,18 @@ function updateControls(): void {
 
   const ready = state.contentReady && state.conversations.length > 0;
 
+  projectSelect.disabled = state.isBusy || state.projects.length === 0;
   selectAllBtn.disabled = state.isBusy || !ready;
   clearSelectionBtn.disabled = state.isBusy || !ready;
   exportBtn.disabled = state.isBusy || !ready;
+
+  if (state.selectedProjectId) {
+    // 还有未加载的页时不能报出「N 个会话」，否则与实际导出数量不符
+    exportLabelEl.textContent = state.hasMore
+      ? t('popup.exportProject')
+      : t('popup.exportProjectCount', { count: state.conversations.length });
+    return;
+  }
 
   // 只选 1 个会话时，无图片等二进制资源会直接下载 .md，文案不能再声称导出 ZIP
   const single = state.selectedIds.size === 1;
@@ -352,11 +476,6 @@ function updateControls(): void {
 function setStatus(text: string, tone: 'muted' | 'success' | 'warning' | 'error' = 'muted'): void {
   statusEl.textContent = text;
   statusEl.dataset.tone = tone;
-}
-
-function showError(text: string): void {
-  // 只更新状态栏，保留界面与重试按钮
-  setStatus(text, 'error');
 }
 
 function createPlaceholder(text: string): HTMLDivElement {

@@ -7,6 +7,7 @@ import {
   isNamedZipEntry,
   isRequestConversationListMessage,
   isRequestExportConversationsMessage,
+  isRequestProjectListMessage,
   type ConversationListResponse,
   type DownloadMarkdownMessage,
   type DownloadZipMessage,
@@ -51,6 +52,10 @@ export default defineBackground(() => {
       return handlePopupConversationListRequest(message);
     }
 
+    if (isRequestProjectListMessage(message)) {
+      return forwardProjectListRequest();
+    }
+
     if (isRequestExportConversationsMessage(message)) {
       return handlePopupExportRequest(message);
     }
@@ -85,55 +90,61 @@ export default defineBackground(() => {
     return { ok: true };
   }
 
-  async function handlePopupConversationListRequest(message: RequestConversationListMessage): Promise<ConversationListResponse> {
+  /* 三个转发函数此前是逐段复制的三份「找标签页 → 探活 → sendMessage → 兜错」，
+   * 现在收敛成一个：差异只在载荷本身。 */
+  async function forwardToChatGPTTab<T>(payload: object): Promise<T | { ok: false; error: string }> {
     const tabId = await findChatGPTTabId();
 
     if (tabId === null) {
       return { ok: false, error: t('background.noChatGPTTab') };
     }
 
-    const ok = await ensureTabReady(tabId);
+    const ready = await ensureTabReady(tabId);
 
-    if (!ok) {
+    if (!ready) {
       return { ok: false, error: t('background.connectionFailedInit') };
     }
 
     try {
-      return await browser.tabs.sendMessage(tabId, { type: 'REQUEST_CONVERSATION_LIST', offset: message.offset, limit: message.limit }) as ConversationListResponse;
+      return await browser.tabs.sendMessage(tabId, payload) as T;
     }
     catch (error) {
-      return { ok: false, error: t('background.communicationFailed', { error: error instanceof Error ? error.message : String(error) }) };
+      return {
+        ok: false,
+        error: t('background.communicationFailed', {
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      };
     }
+  }
+
+  async function handlePopupConversationListRequest(
+    message: RequestConversationListMessage,
+  ): Promise<ConversationListResponse> {
+    return forwardToChatGPTTab<ConversationListResponse>({
+      type: 'REQUEST_CONVERSATION_LIST',
+      offset: message.offset,
+      limit: message.limit,
+      ...(message.projectId ? { projectId: message.projectId, cursor: message.cursor } : {}),
+    });
+  }
+
+  async function forwardProjectListRequest(): Promise<ConversationListResponse> {
+    return forwardToChatGPTTab<ConversationListResponse>({ type: 'REQUEST_PROJECT_LIST' });
   }
 
   async function handlePopupExportRequest(
     request: RequestExportConversationsMessage,
   ): Promise<RuntimeResponse> {
-    const tabId = await findChatGPTTabId();
-
-    if (tabId === null) {
-      return { ok: false, error: t('background.noChatGPTTab') };
-    }
-
-    const ok = await ensureTabReady(tabId);
-
-    if (!ok) {
-      return { ok: false, error: t('background.connectionFailedInit') };
-    }
-
-    try {
-      return await browser.tabs.sendMessage(tabId, {
-        type: 'REQUEST_EXPORT_CONVERSATIONS',
-        chatIds: request.chatIds,
-        includeFrontmatter: request.includeFrontmatter,
-        includeTimestamps: request.includeTimestamps,
-        timestamp24h: request.timestamp24h,
-        fenceMessages: request.fenceMessages,
-      }) as RuntimeResponse;
-    }
-    catch (error) {
-      return { ok: false, error: t('background.communicationFailed', { error: error instanceof Error ? error.message : String(error) }) };
-    }
+    return forwardToChatGPTTab<RuntimeResponse>({
+      type: 'REQUEST_EXPORT_CONVERSATIONS',
+      chatIds: request.chatIds,
+      includeFrontmatter: request.includeFrontmatter,
+      includeTimestamps: request.includeTimestamps,
+      timestamp24h: request.timestamp24h,
+      fenceMessages: request.fenceMessages,
+      ...(request.project ? { project: request.project } : {}),
+    });
   }
 
   async function findChatGPTTabId(): Promise<number | null> {

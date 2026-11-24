@@ -1,12 +1,29 @@
 import { t } from '../../i18n';
 import { mountCurrentExportButton } from './current-export-button';
-import { fetchAllConversations, fetchConversations, fetchConversation, getCurrentChatId } from './api';
+import {
+  fetchAllConversations,
+  fetchConversations,
+  fetchConversation,
+  fetchProjectConversations,
+  fetchProjects,
+  getCurrentChatId,
+} from './api';
 import { processConversation } from './process-conversation';
 import { conversationToMarkdown, type MarkdownOptions } from '../../markdown/conversation-to-markdown';
-import { buildCurrentMarkdownFilename, buildCurrentZipFilename, buildMarkdownFilename, buildZipFilename } from '../../shared/files';
+import {
+  buildCurrentMarkdownFilename,
+  buildCurrentZipFilename,
+  buildMarkdownFilename,
+  buildProjectMarkdownFilename,
+  buildProjectZipFilename,
+  buildZipFilename,
+  projectDirectoryName,
+} from '../../shared/files';
+import type { Project } from '../../shared/chatgpt-types';
 import { buildDownloadMessage } from '../../shared/download';
 import {
   isPingExporterPanelMessage,
+  isRequestProjectListMessage,
   isRequestConversationListMessage,
   isRequestExportConversationsMessage,
   type ConversationListResponse,
@@ -36,7 +53,16 @@ export default defineContentScript({
       }
 
       if (isRequestConversationListMessage(message)) {
-        return handleConversationList(message.offset, message.limit);
+        return handleConversationList(
+          message.offset,
+          message.limit,
+          message.projectId,
+          message.cursor,
+        );
+      }
+
+      if (isRequestProjectListMessage(message)) {
+        return handleProjectList();
       }
 
       if (isRequestExportConversationsMessage(message)) {
@@ -48,17 +74,38 @@ export default defineContentScript({
             timestamp24h: message.timestamp24h,
             fenceMessages: message.fenceMessages,
           },
+          message.project,
         );
       }
 
       return undefined;
     });
 
+    async function handleProjectList(): Promise<ConversationListResponse> {
+      try {
+        return { ok: true, projects: await fetchProjects() };
+      }
+      catch (error) {
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+
     async function handleConversationList(
       offset?: number,
       limit?: number,
+      projectId?: string,
+      cursor?: string | number,
     ): Promise<ConversationListResponse> {
       try {
+        if (projectId) {
+          const page = await fetchProjectConversations(projectId, cursor);
+
+          return { ok: true, conversations: page.items, cursor: page.cursor };
+        }
+
         if (offset != null && limit != null) {
           const result = await fetchConversations(offset, limit);
           return {
@@ -82,7 +129,10 @@ export default defineContentScript({
     async function handleExportConversations(
       chatIds: string[],
       options: MarkdownOptions,
+      project?: Project,
     ): Promise<RuntimeResponse> {
+      // 项目导出时 Markdown 与 assets/ 都落在 <项目名>/ 下，两者必须用同一个目录名
+      const assetPrefix = project ? `${projectDirectoryName(project)}/` : 'ChatGPT/';
       const files: Array<{ filename: string; content: string; data?: string }> = [];
       const failed: string[] = [];
 
@@ -92,7 +142,7 @@ export default defineContentScript({
           const imageEntries: ImageFileEntry[] = [];
 
           try {
-            await resolveImagesAsFileRefs(rawConversation, imageEntries, 'ChatGPT/');
+            await resolveImagesAsFileRefs(rawConversation, imageEntries, assetPrefix);
           }
           catch {
             showToast(`图片解析失败：${chatId}`, 'info');
@@ -101,10 +151,13 @@ export default defineContentScript({
           const conversation = processConversation(rawConversation);
           const markdown = conversationToMarkdown(conversation, options, {
             sourceUrl: `${location.origin}/c/${conversation.id}`,
+            ...(project ? { project } : {}),
           });
 
           files.push({
-            filename: buildMarkdownFilename(conversation.title, conversation.id),
+            filename: project
+              ? buildProjectMarkdownFilename(project, conversation.title, conversation.id)
+              : buildMarkdownFilename(conversation.title, conversation.id),
             content: markdown,
           });
 
@@ -126,7 +179,12 @@ export default defineContentScript({
       }
 
       const response = await browser.runtime.sendMessage(
-        buildDownloadMessage(files, buildZipFilename(), true),
+        buildDownloadMessage(
+          files,
+          project ? buildProjectZipFilename(project) : buildZipFilename(),
+          true,
+          Boolean(project),
+        ),
       ) as RuntimeResponse;
 
       if (!response?.ok) {

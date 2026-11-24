@@ -21,6 +21,14 @@ export type RequestConversationListMessage = {
   type: 'REQUEST_CONVERSATION_LIST';
   offset?: number;
   limit?: number;
+  /** 存在则改走项目会话端点（`/gizmos/{id}/conversations`），偏移分页不适用 */
+  projectId?: string;
+  /** 项目会话端点是 cursor 分页；首屏留空，后续带上一页返回的值 */
+  cursor?: string | number;
+};
+
+export type RequestProjectListMessage = {
+  type: 'REQUEST_PROJECT_LIST';
 };
 
 export type RequestExportConversationsMessage = {
@@ -31,6 +39,11 @@ export type RequestExportConversationsMessage = {
   timestamp24h: boolean;
   /** 每条消息渲染为围栏代码块，取代 `---` + `## 角色` */
   fenceMessages: boolean;
+  /** 项目导出：产物按项目建目录，并在 frontmatter 写入项目字段 */
+  project?: {
+    id: string;
+    name: string;
+  };
 };
 
 /** Content script 向 background 报到 */
@@ -44,6 +57,7 @@ export type RuntimeMessage =
   | DownloadMarkdownMessage
   | DownloadZipMessage
   | RequestConversationListMessage
+  | RequestProjectListMessage
   | RequestExportConversationsMessage;
 
 export type RuntimeResponse = {
@@ -59,8 +73,13 @@ export type ConversationListResponse = {
     title: string;
     create_time: number;
     update_time?: number;
+    gizmo_id?: string | null;
   }>;
   total?: number | null;
+  /** 项目模式下的下一页游标；null 表示没有更多 */
+  cursor?: string | null;
+  /** 仅项目列表请求会填充 */
+  projects?: Array<{ id: string; name: string }>;
 };
 
 export function isContentScriptReadyMessage(
@@ -85,15 +104,52 @@ export function isDownloadMessage(
 export function isRequestConversationListMessage(
   value: unknown,
 ): value is RequestConversationListMessage {
-  return isObject(value) && value.type === 'REQUEST_CONVERSATION_LIST';
+  if (!isObject(value) || value.type !== 'REQUEST_CONVERSATION_LIST') {
+    return false;
+  }
+
+  const message = value as RequestConversationListMessage;
+
+  // 可选字段一旦出现就必须是对的类型：它们会被直接拼进请求 URL
+  if (message.projectId !== undefined && typeof message.projectId !== 'string') {
+    return false;
+  }
+
+  if (message.cursor !== undefined
+    && typeof message.cursor !== 'string'
+    && typeof message.cursor !== 'number') {
+    return false;
+  }
+
+  return true;
+}
+
+export function isRequestProjectListMessage(
+  value: unknown,
+): value is RequestProjectListMessage {
+  return isObject(value) && value.type === 'REQUEST_PROJECT_LIST';
 }
 
 export function isRequestExportConversationsMessage(
   value: unknown,
 ): value is RequestExportConversationsMessage {
-  return isObject(value)
-    && value.type === 'REQUEST_EXPORT_CONVERSATIONS'
-    && Array.isArray((value as RequestExportConversationsMessage).chatIds);
+  if (!isObject(value)
+    || value.type !== 'REQUEST_EXPORT_CONVERSATIONS'
+    || !Array.isArray((value as RequestExportConversationsMessage).chatIds)) {
+    return false;
+  }
+
+  const project = (value as RequestExportConversationsMessage).project;
+
+  if (project === undefined) {
+    return true;
+  }
+
+  // 项目上下文会决定产物目录与 frontmatter，字段残缺必须在这里拦住
+  return typeof project === 'object'
+    && project !== null
+    && typeof project.id === 'string'
+    && typeof project.name === 'string';
 }
 
 export function isNamedTextFile(value: unknown): value is NamedTextFile {
