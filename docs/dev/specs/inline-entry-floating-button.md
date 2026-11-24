@@ -27,12 +27,13 @@
 
 ```
 mountCurrentExportButton(onExport)
+  ├─ injectButtonStyles()  // 自包含样式，position: fixed；样式节点已存在则跳过
+  ├─ 已存在按钮 → return  // 幂等
   ├─ createButton()        // 图标 + t('common.export')，id 不变
-  ├─ injectButtonStyles()  // 自包含样式，position: fixed
   └─ document.body.appendChild(button)
 ```
 
-- 幂等：`document.getElementById(CURRENT_EXPORT_BUTTON_ID)` 已存在则直接返回（保持现状）
+- 幂等：按钮已存在则不再创建；**样式与按钮分别校验** —— 宿主重置 `head`（或开发期 HMR）可能只丢样式，此时按钮仍在，只查按钮会让它退化成无定位的默认按钮
 - 无观察器、无 `reconcile`、无几何计算；SPA 路由切换时按钮不受影响（挂在 `body`，不随内容区重建）
 - 点击回调保持现有语义：忽略 `!event.isTrusted`
 
@@ -44,7 +45,7 @@ mountCurrentExportButton(onExport)
   right: 16px;
   bottom: 16px;
   z-index: 2147483000;
-  /* 其余（尺寸、圆角、字体、hover、focus-visible、图标）沿用现有自包含样式 */
+  /* 其余（尺寸、圆角、字体、focus-visible、图标）沿用现有自包含样式 */
   background: var(--color-surface-elevated, Canvas);
   border: 1px solid var(--color-border-light, rgba(128,128,128,0.3));
   box-shadow: 0 2px 8px rgba(0,0,0,0.18);
@@ -53,6 +54,15 @@ mountCurrentExportButton(onExport)
 ```
 
 颜色继续优先取宿主 CSS 变量并带 fallback；因是浮层，背景与投影必须自带。
+
+**hover 必须保持底色不透明**：寄宿在工具栏时用的是半透明 ghost 底色（背后是 header，透不出来），浮层背后是正文，半透明会让文字透出来。改为在自带底色上叠一层淡色渐变：
+
+```css
+#cgpt-export-current-button:hover {
+  background-image: linear-gradient(var(--color-primary-ghost-hover, rgba(128,128,128,0.15)),
+                                    var(--color-primary-ghost-hover, rgba(128,128,128,0.15)));
+}
+```
 
 ### 3.3 删除清单（Clean Break）
 
@@ -72,9 +82,12 @@ mountCurrentExportButton(onExport)
 |---|---|
 | 挂载 | `document.body` 直接子元素；`id` 为 `cgpt-export-current-button` |
 | 幂等 | 连续调用两次挂载，DOM 中只有一个按钮 |
-| 样式注入 | `<head>` 中样式节点唯一，且包含 `position: fixed` |
+| 样式注入 | `<head>` 中样式节点唯一，且包含 `position: fixed` 与 px 定位（不重复断言具体数值） |
+| 样式自愈 | 样式节点被宿主清掉后再次挂载会补注入 |
 | 点击 | trusted 事件触发回调；`isTrusted=false` 不触发 |
-| 点击后 DOM 不变 | 不移动、不新增节点（证明没有观察器在动） |
+| 无观察器 | 挂载过程中不实例化 `MutationObserver`（锁住 ADR D3 的删除结论，防止"重新收敛"逻辑回流） |
+| 宿主重建内容区 | 按钮父节点仍是 `body`（不参与宿主结构的重建） |
+| 可访问名称 | `aria-label` 非空、文案非空 |
 
 覆盖率仍须满足全局 90% 阈值。
 
