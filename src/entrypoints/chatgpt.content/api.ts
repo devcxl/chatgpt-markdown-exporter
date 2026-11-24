@@ -283,7 +283,8 @@ export async function fetchProjects(): Promise<Project[]> {
   const projects: Project[] = [];
   const seenIds = new Set<string>();
   const seenCursors = new Set<string>();
-  let cursor = '0';
+  // 首页必须不带 cursor：服务端会把它当不透明游标解码，`cursor=0` 直接返回 500
+  let cursor: string | null = null;
 
   for (;;) {
     const page = await fetchProjectSidebarPage(cursor);
@@ -315,14 +316,19 @@ export async function fetchProjects(): Promise<Project[]> {
   return projects;
 }
 
-async function fetchProjectSidebarPage(cursor: string): Promise<ApiProjectSidebar> {
+async function fetchProjectSidebarPage(cursor: string | null): Promise<ApiProjectSidebar> {
   const params = new URLSearchParams({
     owned_only: 'true',
-    // 内嵌会话只会给最近 5 条，不构成完整列表，还会显著放大响应体
+    /* 内嵌会话只会给最近 5 条，不构成完整列表，还会显著放大响应体。
+     * 反过来，带上这个参数时响应是双层 `items[].gizmo.gizmo`，
+     * 不带时是单层 `items[].gizmo` —— 所以解包必须两种都认。 */
     conversations_per_gizmo: '0',
     limit: String(PROJECTS_PAGE_LIMIT),
-    cursor,
   });
+
+  if (cursor) {
+    params.set('cursor', cursor);
+  }
 
   return fetchApi<ApiProjectSidebar>(`/gizmos/snorlax/sidebar?${params.toString()}`);
 }

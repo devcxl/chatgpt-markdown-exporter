@@ -536,6 +536,35 @@ describe('fetchProjects', () => {
     expect(fetchMock.mock.calls.filter(c => String(c[0]).includes('/gizmos/snorlax/sidebar'))).toHaveLength(2);
   });
 
+  it('首页请求不带 cursor（服务端对 cursor=0 返回 500）', async () => {
+    const fetchMock = stubSidebar([{ items: [], cursor: null }]);
+    const { fetchProjects } = await loadApi();
+
+    await fetchProjects();
+
+    const url = sidebarUrl(fetchMock);
+
+    expect(url.searchParams.has('cursor')).toBe(false);
+  });
+
+  it('后续页才带服务端下发的 cursor', async () => {
+    const fetchMock = stubSidebar([
+      { items: [sidebarProject('g-p-a')], cursor: 'opaque-cursor' },
+      { items: [sidebarProject('g-p-b')], cursor: null },
+    ]);
+    const { fetchProjects } = await loadApi();
+
+    await fetchProjects();
+
+    const sidebarCalls = fetchMock.mock.calls
+      .map(call => String(call[0]))
+      .filter(url => url.includes('/gizmos/snorlax/sidebar'))
+      .map(url => new URL(url));
+
+    expect(sidebarCalls).toHaveLength(2);
+    expect(sidebarCalls[1].searchParams.get('cursor')).toBe('opaque-cursor');
+  });
+
   it('不传 limit 只返回 5 条，因此请求必须显式带上 limit 与 owned_only', async () => {
     const fetchMock = stubSidebar([{ items: [], cursor: null }]);
     const { fetchProjects } = await loadApi();
