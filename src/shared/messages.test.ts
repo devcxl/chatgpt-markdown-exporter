@@ -130,7 +130,13 @@ describe('项目维度的列表与导出请求', () => {
     expect(isRequestConversationListMessage({
       type: 'REQUEST_CONVERSATION_LIST',
       projectId: 'g-p-aaa',
-      cursor: 0,
+      cursor: 'opaque',
+    })).toBe(true);
+
+    // 首屏不带 cursor 也合法
+    expect(isRequestConversationListMessage({
+      type: 'REQUEST_CONVERSATION_LIST',
+      projectId: 'g-p-aaa',
     })).toBe(true);
   });
 

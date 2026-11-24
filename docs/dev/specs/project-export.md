@@ -14,7 +14,7 @@
 | 项 | 结论 |
 |---|---|
 | 项目列表 | `GET /backend-api/gizmos/snorlax/sidebar?owned_only=true&conversations_per_gizmo=0&limit=50`，**cursor 分页**（不传 `limit` 只返 5 条）。**首页不得带 `cursor` —— `cursor=0` 会 500** |
-| 项目内会话 | `GET /backend-api/gizmos/{gizmo_id}/conversations?cursor=0&limit=50`（`limit` 上限 50，超出 422） |
+| 项目内会话 | `GET /backend-api/gizmos/{gizmo_id}/conversations?limit=50&owned_only=false`（参数形状照抄前端，2026-11-25 从 Network 取到）。**首页不带 `cursor`；`owned_only=false` 不能省 —— 缺省时实测返回空列表**；`limit` 上限 50，超出 422 |
 | 过滤参数 | `/conversations?gizmo_id=` **被服务端静默忽略**，不得使用 |
 | 会话分类 | 现有 `/conversations` 列表项已带 `gizmo_id`：`null` 普通 / `g-p-` 项目 / `g-` 自定义 GPT |
 | 时间格式 | 主列表 `create_time` 是 **epoch 秒（数字）**；项目会话列表是 **ISO 8601 字符串** —— 必须归一化 |
@@ -85,6 +85,7 @@ type ProjectConversationPage = { items: ApiConversationItem[]; cursor: string | 
 - `Project` 定义在 `shared/chatgpt-types.ts`（跨 context 共享），不在 `api.ts` 里另建一份
 - `fetchProjectConversations` 的 `limit` 固定 50；**不得用 `total` 判断结束**
 - 末页判定：`cursor` 为 `null`/缺失/空串（统一归一为 `null`）
+- **项目会话端点同样不带首页 cursor**，且必须带 `owned_only=false`；`cursor` 是不透明字符串，不做数值转换（消息类型里也是 `string` 而非 `number`）
 - `fetchProjects` 翻页需带**重复 cursor 防护**：服务端若原样下发同一个 cursor，直接终止，否则会无限请求同一页
 - **首页请求不得带 `cursor`**：服务端把它当不透明游标解码，`cursor=0` 返回 500（2026-11-25 实测：带 cursor=0 → 500，不带 → 200）
 - **响应嵌套层数随参数变化**：带 `conversations_per_gizmo` 时是 `items[].gizmo.gizmo`，不带时是 `items[].gizmo`；解包必须两种都认（实测同账号两种形态都出现过）

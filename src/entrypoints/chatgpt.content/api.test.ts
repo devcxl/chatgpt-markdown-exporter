@@ -634,7 +634,7 @@ describe('fetchProjectConversations', () => {
     return findRequestUrl(fetchMock, /\/gizmos\/[^/]+\/conversations/);
   }
 
-  it('从 cursor=0 起、limit 固定 50（超过 50 服务端返回 422）', async () => {
+  it('参数形状照抄前端：首页不带 cursor、owned_only=false、limit 固定 50', async () => {
     const fetchMock = stubProjectPage({ items: [], cursor: null });
     const { fetchProjectConversations } = await loadApi();
 
@@ -643,7 +643,9 @@ describe('fetchProjectConversations', () => {
     const url = projectUrl(fetchMock);
 
     expect(url.pathname).toContain('/gizmos/g-p-aaa/conversations');
-    expect(url.searchParams.get('cursor')).toBe('0');
+    // 前端实测请求：?limit=5&owned_only=false —— 无 cursor
+    expect(url.searchParams.has('cursor')).toBe(false);
+    expect(url.searchParams.get('owned_only')).toBe('false');
     expect(url.searchParams.get('limit')).toBe('50');
   });
 
@@ -691,7 +693,7 @@ describe('fetchProjectConversations', () => {
     expect((await fetchProjectConversations('g-p-aaa', 'prev-1')).cursor).toBe('next-1');
   });
 
-  it('上一次的 cursor 原样带进请求', async () => {
+  it('上一次的 cursor 原样带进请求（不透明字符串，不做数值转换）', async () => {
     const fetchMock = stubProjectPage({ items: [], cursor: null });
     const { fetchProjectConversations } = await loadApi();
 

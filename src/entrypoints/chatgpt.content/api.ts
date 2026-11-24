@@ -341,12 +341,21 @@ async function fetchProjectSidebarPage(cursor: string | null): Promise<ApiProjec
  */
 export async function fetchProjectConversations(
   projectId: string,
-  cursor: string | number = 0,
+  cursor?: string | null,
 ): Promise<ProjectConversationPage> {
+  /* 参数形状照抄 ChatGPT 前端自己发的请求（2026-11-25 从 Network 面板取到）：
+   *   /gizmos/{id}/conversations?limit=5&owned_only=false
+   * 两条都不能改：
+   * - 首页不带 cursor —— 与 sidebar 同一类问题，`cursor=0` 会被当游标解码
+   * - `owned_only=false` —— 缺省或 true 时实测返回空列表（items: []） */
   const params = new URLSearchParams({
-    cursor: String(cursor),
     limit: String(PROJECT_CONVERSATIONS_PAGE_LIMIT),
+    owned_only: 'false',
   });
+
+  if (cursor) {
+    params.set('cursor', cursor);
+  }
 
   const page = await fetchApi<ApiProjectConversations>(
     `/gizmos/${encodeURIComponent(projectId)}/conversations?${params.toString()}`,

@@ -97,7 +97,7 @@ export default defineContentScript({
       offset?: number,
       limit?: number,
       projectId?: string,
-      cursor?: string | number,
+      cursor?: string,
     ): Promise<ConversationListResponse> {
       try {
         if (projectId) {

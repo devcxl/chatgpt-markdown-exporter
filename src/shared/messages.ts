@@ -23,8 +23,8 @@ export type RequestConversationListMessage = {
   limit?: number;
   /** 存在则改走项目会话端点（`/gizmos/{id}/conversations`），偏移分页不适用 */
   projectId?: string;
-  /** 项目会话端点是 cursor 分页；首屏留空，后续带上一页返回的值 */
-  cursor?: string | number;
+  /** 项目会话端点是 cursor 分页；首屏留空，后续带上一页返回的不透明字符串 */
+  cursor?: string;
 };
 
 export type RequestProjectListMessage = {
@@ -115,9 +115,7 @@ export function isRequestConversationListMessage(
     return false;
   }
 
-  if (message.cursor !== undefined
-    && typeof message.cursor !== 'string'
-    && typeof message.cursor !== 'number') {
+  if (message.cursor !== undefined && typeof message.cursor !== 'string') {
     return false;
   }
 
