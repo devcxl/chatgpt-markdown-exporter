@@ -21,6 +21,8 @@ Browser extension that exports ChatGPT conversations to Markdown files. Supports
 
 - One-click export of the current ChatGPT conversation
 - Batch export multiple conversations
+- Export an entire ChatGPT Project as one ZIP (per-project folder, project name and id in the frontmatter)
+- Optional: render every message as a fenced code block, for readers who want each message to stand out
 - Uses ChatGPT backend API instead of fragile DOM scraping
 - Preserves User / Assistant role labels
 - Preserves code blocks and math formulas
