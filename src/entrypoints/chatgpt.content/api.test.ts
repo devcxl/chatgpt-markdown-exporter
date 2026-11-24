@@ -45,6 +45,22 @@ function conversationItem(id: string) {
   return { id, title: `title-${id}`, create_time: 1 };
 }
 
+/** 取出唯一匹配的请求 URL，用于断言端点参数 */
+function findRequestUrl(
+  fetchMock: ReturnType<typeof vi.fn>,
+  matcher: string | RegExp,
+): URL {
+  const call = fetchMock.mock.calls
+    .map(call => String(call[0]))
+    .find(url => (typeof matcher === 'string' ? url.includes(matcher) : matcher.test(url)));
+
+  if (!call) {
+    throw new Error(`未请求匹配 ${String(matcher)} 的端点`);
+  }
+
+  return new URL(call);
+}
+
 describe('getCurrentChatId', () => {
   afterEach(() => vi.unstubAllGlobals());
 
@@ -392,5 +408,285 @@ describe('fetchAllConversations', () => {
     await fetchAllConversations(200, items => batches.push(items.length));
 
     expect(batches).toEqual([100, 1]);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  项目（snorlax gizmo）侧                                             */
+/* ------------------------------------------------------------------ */
+
+/* 端点与字段事实见 research/project-api 分支的
+ * docs/research/project-gizmo-api.md，以及 docs/dev/specs/project-export.md §2。 */
+
+function sidebarProject(id: string, name?: string) {
+  return {
+    gizmo: {
+      gizmo: {
+        id,
+        display: name === undefined ? undefined : { name },
+        gizmo_type: 'snorlax',
+      },
+      conversations: { items: [], cursor: null },
+    },
+  };
+}
+
+describe('toEpochSeconds', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('数字按秒原样返回，小数向下取整', async () => {
+    setUrl('https://chatgpt.com/c/abc');
+    const { toEpochSeconds } = await loadApi();
+
+    expect(toEpochSeconds(1700000000)).toBe(1700000000);
+    expect(toEpochSeconds(1761765938.749404)).toBe(1761765938);
+  });
+
+  it('ISO 8601 字符串转为秒', async () => {
+    setUrl('https://chatgpt.com/c/abc');
+    const { toEpochSeconds } = await loadApi();
+
+    // 字面量来自独立换算，避免与实现用同一个表达式自证
+    expect(toEpochSeconds('2025-07-23T17:14:27.231284Z')).toBe(1753290867);
+  });
+
+  it('无法解析的值返回 0 而不是 NaN', async () => {
+    setUrl('https://chatgpt.com/c/abc');
+    const { toEpochSeconds } = await loadApi();
+
+    expect(toEpochSeconds('not-a-date')).toBe(0);
+    expect(toEpochSeconds(undefined)).toBe(0);
+    expect(toEpochSeconds(null)).toBe(0);
+  });
+});
+
+describe('fetchProjects', () => {
+  beforeEach(() => {
+    setUrl('https://chatgpt.com/c/abc-123');
+    document.cookie = '_account=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  function stubSidebar(pages: Array<{ items: unknown[]; cursor?: string | null }>) {
+    let page = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/auth/session')) return sessionResponse();
+      const body = pages[Math.min(page, pages.length - 1)];
+      page += 1;
+      return jsonResponse(body);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  }
+
+  function sidebarUrl(fetchMock: ReturnType<typeof vi.fn>): URL {
+    return findRequestUrl(fetchMock, '/gizmos/snorlax/sidebar');
+  }
+
+  it('解包 gizmo.gizmo 双层嵌套', async () => {
+    stubSidebar([{ items: [sidebarProject('g-p-aaa', '研究')], cursor: null }]);
+    const { fetchProjects } = await loadApi();
+
+    expect(await fetchProjects()).toEqual([{ id: 'g-p-aaa', name: '研究' }]);
+  });
+
+  it('兼容只有一层 gizmo 的形态', async () => {
+    stubSidebar([{ items: [{ gizmo: { id: 'g-p-bbb', display: { name: '单层' } } }], cursor: null }]);
+    const { fetchProjects } = await loadApi();
+
+    expect(await fetchProjects()).toEqual([{ id: 'g-p-bbb', name: '单层' }]);
+  });
+
+  it('过滤非 g-p- 前缀的项（自定义 GPT 混入）', async () => {
+    stubSidebar([{
+      items: [sidebarProject('g-p-ccc', 'A'), sidebarProject('g-zzz', 'GPT'), sidebarProject('nonsense', 'X')],
+      cursor: null,
+    }]);
+    const { fetchProjects } = await loadApi();
+
+    expect((await fetchProjects()).map(p => p.id)).toEqual(['g-p-ccc']);
+  });
+
+  it('display.name 为空或缺失时回退项目 id', async () => {
+    stubSidebar([{
+      items: [sidebarProject('g-p-ddd', ''), sidebarProject('g-p-eee')],
+      cursor: null,
+    }]);
+    const { fetchProjects } = await loadApi();
+
+    expect(await fetchProjects()).toEqual([
+      { id: 'g-p-ddd', name: 'g-p-ddd' },
+      { id: 'g-p-eee', name: 'g-p-eee' },
+    ]);
+  });
+
+  it('按 cursor 翻页并在 null 时终止', async () => {
+    const fetchMock = stubSidebar([
+      { items: [sidebarProject('g-p-a')], cursor: 'p2' },
+      { items: [sidebarProject('g-p-b')], cursor: null },
+    ]);
+    const { fetchProjects } = await loadApi();
+
+    expect((await fetchProjects()).map(p => p.id)).toEqual(['g-p-a', 'g-p-b']);
+    expect(fetchMock.mock.calls.filter(c => String(c[0]).includes('/gizmos/snorlax/sidebar'))).toHaveLength(2);
+  });
+
+  it('不传 limit 只返回 5 条，因此请求必须显式带上 limit 与 owned_only', async () => {
+    const fetchMock = stubSidebar([{ items: [], cursor: null }]);
+    const { fetchProjects } = await loadApi();
+
+    await fetchProjects();
+
+    const url = sidebarUrl(fetchMock);
+
+    expect(url.searchParams.get('limit')).toBe('50');
+    expect(url.searchParams.get('owned_only')).toBe('true');
+    // 内嵌会话会显著放大响应体，且不足以构成完整列表
+    expect(url.searchParams.get('conversations_per_gizmo')).toBe('0');
+  });
+
+  it('没有 gizmo 字段的项被丢弃', async () => {
+    stubSidebar([{ items: [{}, { gizmo: null }, sidebarProject('g-p-ok', 'OK')], cursor: null }]);
+    const { fetchProjects } = await loadApi();
+
+    expect((await fetchProjects()).map(p => p.id)).toEqual(['g-p-ok']);
+  });
+
+  it('服务端重复下发同一个 cursor 时终止，不会无限请求', async () => {
+    const fetchMock = stubSidebar([
+      { items: [sidebarProject('g-p-x')], cursor: 'same' },
+      { items: [sidebarProject('g-p-y')], cursor: 'same' },
+    ]);
+    const { fetchProjects } = await loadApi();
+
+    expect((await fetchProjects()).map(p => p.id)).toEqual(['g-p-x', 'g-p-y']);
+    expect(fetchMock.mock.calls.filter(c => String(c[0]).includes('/gizmos/snorlax/sidebar')))
+      .toHaveLength(2);
+  });
+
+  it('重复出现的项目只保留一次（翻页边界重叠）', async () => {
+    stubSidebar([
+      { items: [sidebarProject('g-p-dup', 'D')], cursor: 'p2' },
+      { items: [sidebarProject('g-p-dup', 'D')], cursor: null },
+    ]);
+    const { fetchProjects } = await loadApi();
+
+    expect((await fetchProjects()).map(p => p.id)).toEqual(['g-p-dup']);
+  });
+});
+
+describe('fetchProjectConversations', () => {
+  beforeEach(() => {
+    setUrl('https://chatgpt.com/c/abc-123');
+    document.cookie = '_account=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  function stubProjectPage(body: unknown) {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/auth/session')) return sessionResponse();
+      return jsonResponse(body);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  }
+
+  function projectUrl(fetchMock: ReturnType<typeof vi.fn>): URL {
+    return findRequestUrl(fetchMock, /\/gizmos\/[^/]+\/conversations/);
+  }
+
+  it('从 cursor=0 起、limit 固定 50（超过 50 服务端返回 422）', async () => {
+    const fetchMock = stubProjectPage({ items: [], cursor: null });
+    const { fetchProjectConversations } = await loadApi();
+
+    await fetchProjectConversations('g-p-aaa');
+
+    const url = projectUrl(fetchMock);
+
+    expect(url.pathname).toContain('/gizmos/g-p-aaa/conversations');
+    expect(url.searchParams.get('cursor')).toBe('0');
+    expect(url.searchParams.get('limit')).toBe('50');
+  });
+
+  it('把 ISO 字符串时间归一化为 epoch 秒', async () => {
+    stubProjectPage({
+      items: [{
+        id: 'c1',
+        title: 'T',
+        create_time: '2025-07-23T17:14:27.231284Z',
+        update_time: '2025-08-17T20:49:57.087149Z',
+        gizmo_id: 'g-p-aaa',
+      }],
+      cursor: null,
+    });
+    const { fetchProjectConversations } = await loadApi();
+
+    const page = await fetchProjectConversations('g-p-aaa');
+
+    expect(page.items[0]).toMatchObject({
+      id: 'c1',
+      title: 'T',
+      create_time: 1753290867,
+      update_time: 1755463797,
+      gizmo_id: 'g-p-aaa',
+    });
+  });
+
+  it('缺 update_time 时不补字段，缺 gizmo_id 时补 null', async () => {
+    stubProjectPage({
+      items: [{ id: 'c1', title: 'T', create_time: '2025-07-23T17:14:27Z' }],
+      cursor: null,
+    });
+    const { fetchProjectConversations } = await loadApi();
+
+    const page = await fetchProjectConversations('g-p-aaa');
+
+    expect(page.items[0].update_time).toBeUndefined();
+    expect(page.items[0].gizmo_id).toBeNull();
+  });
+
+  it('透传服务端 cursor 供下一页使用，末页为 null', async () => {
+    stubProjectPage({ items: [], cursor: 'next-1' });
+    const { fetchProjectConversations } = await loadApi();
+
+    expect((await fetchProjectConversations('g-p-aaa', 'prev-1')).cursor).toBe('next-1');
+  });
+
+  it('上一次的 cursor 原样带进请求', async () => {
+    const fetchMock = stubProjectPage({ items: [], cursor: null });
+    const { fetchProjectConversations } = await loadApi();
+
+    await fetchProjectConversations('g-p-aaa', 'abc');
+
+    expect(projectUrl(fetchMock).searchParams.get('cursor')).toBe('abc');
+  });
+
+  it('空串 cursor 归一为 null（调用方按 null 判断末页）', async () => {
+    stubProjectPage({ items: [], cursor: '' });
+    const { fetchProjectConversations } = await loadApi();
+
+    const page = await fetchProjectConversations('g-p-aaa');
+
+    expect(page.cursor).toBeNull();
+  });
+
+  it('响应缺 items 时按空列表处理', async () => {
+    stubProjectPage({});
+    const { fetchProjectConversations } = await loadApi();
+
+    const page = await fetchProjectConversations('g-p-aaa');
+
+    expect(page.items).toEqual([]);
+    expect(page.cursor).toBeNull();
   });
 });

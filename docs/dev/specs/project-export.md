@@ -60,13 +60,15 @@ type ApiProjectConversations = {
 ## 3. 领域模型
 
 ```
-Project      = { id, name, raw }
-ConversationListItem = { id, title, createTime: epoch秒, updateTime?: epoch秒 }   // 统一后的形态
+Project              = { id, name }                                  // 不保留 raw，UI 不需要
+ConversationListItem = { id, title, create_time, update_time?, gizmo_id }  // 复用 ApiConversationItem
 ```
 
 - 项目名 `display.name` 为空 → 回退项目 id
-- 归一化函数 `toEpochSeconds(value: number | string): number`：数字原样返回（可能带小数，向下取整），字符串走 `Date.parse(v) / 1000`
+- 归一化函数 `toEpochSeconds(value: number | string | null): number`：数字向下取整，字符串走 `Date.parse / 1000`，**解析失败返回 0**（不把 NaN 传下去）
+- 缺 `update_time` 时**不补字段**（补 0 会显示成 1970）；缺 `gizmo_id` 时补 `null`
 - 现有 `ConversationItem`（popup）字段不变，只保证 `create_time` / `update_time` 始终是 epoch 秒
+- 有意不引入 `raw`：`num_interactions` / `instructions` 这次都不用，带原始对象只会让边界变糊
 
 ## 4. 接口与消息
 
@@ -74,11 +76,16 @@ ConversationListItem = { id, title, createTime: epoch秒, updateTime?: epoch秒 
 
 ```ts
 // api.ts
-export async function fetchProjects(): Promise<Project[]>;                 // sidebar 全量翻页，解包 + 过滤 g-p-
-export async function fetchProjectConversations(projectId: string, cursor?: string | number): Promise<{ items: ConversationListItem[]; cursor: string | null }>;
+export async function fetchProjects(): Promise<Project[]>;                 // sidebar 全量翻页（cursor=0 起），解包 + 过滤 g-p- + 按 id 去重
+export async function fetchProjectConversations(projectId: string, cursor = 0): Promise<ProjectConversationPage>;
+
+type ProjectConversationPage = { items: ApiConversationItem[]; cursor: string | null };
 ```
 
-`fetchProjectConversations` 的 `limit` 固定 50；终止条件 `cursor` 为 `null`/缺失。**不得用 `total` 判断结束**。
+- `Project` 定义在 `shared/chatgpt-types.ts`（跨 context 共享），不在 `api.ts` 里另建一份
+- `fetchProjectConversations` 的 `limit` 固定 50；**不得用 `total` 判断结束**
+- 末页判定：`cursor` 为 `null`/缺失/空串（统一归一为 `null`）
+- `fetchProjects` 翻页需带**重复 cursor 防护**：服务端若原样下发同一个 cursor，直接终止，否则会无限请求同一页
 
 ### 4.2 消息
 

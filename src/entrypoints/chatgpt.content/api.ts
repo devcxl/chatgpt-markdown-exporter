@@ -4,6 +4,12 @@ import type {
   ApiConversation,
   ApiConversationItem,
   ApiConversations,
+  ApiProject,
+  ApiProjectConversationItem,
+  ApiProjectConversations,
+  ApiProjectSidebar,
+  ApiProjectSidebarItem,
+  Project,
 } from '../../shared/chatgpt-types';
 
 const API_MAPPING: Record<string, string> = {
@@ -232,4 +238,146 @@ export async function fetchAllConversations(
   }
 
   return items;
+}
+
+/* ---- 项目（snorlax gizmo） ---- */
+
+/* sidebar 不传 limit 只返回 5 条；项目会话端点的 limit 上限是 50（超过返回 422），
+ * 因此两个分页参数都是「显式写上」而不是依赖服务端默认值。 */
+const PROJECTS_PAGE_LIMIT = 50;
+const PROJECT_CONVERSATIONS_PAGE_LIMIT = 50;
+
+export type ProjectConversationPage = {
+  items: ApiConversationItem[];
+  /** null = 没有下一页 */
+  cursor: string | null;
+};
+
+/**
+ * 把两种时间表示统一成 epoch 秒：
+ * 主会话列表是数字（可能带小数），项目会话列表是 ISO 8601 字符串。
+ * 无法解析时返回 0，让调用方走「无时间信息」分支，而不是把 NaN 传下去。
+ */
+export function toEpochSeconds(value: number | string | null | undefined): number {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? Math.floor(value) : 0;
+  }
+
+  if (typeof value === 'string' && value) {
+    const milliseconds = Date.parse(value);
+
+    return Number.isFinite(milliseconds) ? Math.floor(milliseconds / 1000) : 0;
+  }
+
+  return 0;
+}
+
+/**
+ * 拉取全部项目。cursor 分页，`cursor` 为 null/缺失时结束。
+ *
+ * 响应存在双层嵌套（`items[].gizmo.gizmo`）与单层（`items[].gizmo`）两种形态，
+ * 且可能混入自定义 GPT —— 一律按 `g-p-` 前缀过滤，不依赖 `gizmo_type`
+ * （该字段在会话对象上存在 `null` 与 `"snorlax"` 两种说法）。
+ */
+export async function fetchProjects(): Promise<Project[]> {
+  const projects: Project[] = [];
+  const seenIds = new Set<string>();
+  const seenCursors = new Set<string>();
+  let cursor = '0';
+
+  for (;;) {
+    const page = await fetchProjectSidebarPage(cursor);
+    const items = page.items ?? [];
+
+    for (const item of items) {
+      const project = unwrapProject(item);
+
+      if (!project?.id?.startsWith('g-p-') || seenIds.has(project.id)) {
+        continue;
+      }
+
+      seenIds.add(project.id);
+      projects.push({
+        id: project.id,
+        name: project.display?.name?.trim() || project.id,
+      });
+    }
+
+    // cursor 重复出现说明服务端没有推进，继续跟只会无限请求同一页
+    if (!page.cursor || seenCursors.has(page.cursor) || items.length === 0) {
+      break;
+    }
+
+    seenCursors.add(page.cursor);
+    cursor = page.cursor;
+  }
+
+  return projects;
+}
+
+async function fetchProjectSidebarPage(cursor: string): Promise<ApiProjectSidebar> {
+  const params = new URLSearchParams({
+    owned_only: 'true',
+    // 内嵌会话只会给最近 5 条，不构成完整列表，还会显著放大响应体
+    conversations_per_gizmo: '0',
+    limit: String(PROJECTS_PAGE_LIMIT),
+    cursor,
+  });
+
+  return fetchApi<ApiProjectSidebar>(`/gizmos/snorlax/sidebar?${params.toString()}`);
+}
+
+/**
+ * 拉取某个项目的一页会话。
+ *
+ * 注意 `/conversations?gizmo_id=` 会被服务端**静默忽略**（返回全局列表且不报错），
+ * 因此必须走这个专用端点。limit 固定 50；翻页由调用方带着 `cursor` 驱动。
+ */
+export async function fetchProjectConversations(
+  projectId: string,
+  cursor: string | number = 0,
+): Promise<ProjectConversationPage> {
+  const params = new URLSearchParams({
+    cursor: String(cursor),
+    limit: String(PROJECT_CONVERSATIONS_PAGE_LIMIT),
+  });
+
+  const page = await fetchApi<ApiProjectConversations>(
+    `/gizmos/${encodeURIComponent(projectId)}/conversations?${params.toString()}`,
+  );
+
+  return {
+    items: (page.items ?? []).map(normalizeProjectConversation),
+    // 空串也算末页：调用方按 `cursor === null` 判断是否还有下一页
+    cursor: page.cursor || null,
+  };
+}
+
+function unwrapProject(item: ApiProjectSidebarItem): ApiProject | null {
+  const nested = item.gizmo?.gizmo;
+
+  if (nested?.id) {
+    return nested;
+  }
+
+  const single = item.gizmo;
+
+  return single?.id ? { id: single.id, display: single.display } : null;
+}
+
+function normalizeProjectConversation(
+  item: ApiProjectConversationItem,
+): ApiConversationItem {
+  return {
+    id: item.id,
+    title: item.title,
+    create_time: toEpochSeconds(item.create_time),
+    // update_time 是可选项：缺失就不补字段。补 0 会被当成「有时间但为 0 秒」
+    // 而非「没有时间」，调用方用 `?? create_time` 兜底即可。
+    // create_time 则必须给出数值，0 已由展示层处理成「无时间信息」。
+    ...(item.update_time == null
+      ? {}
+      : { update_time: toEpochSeconds(item.update_time) }),
+    gizmo_id: item.gizmo_id ?? null,
+  };
 }

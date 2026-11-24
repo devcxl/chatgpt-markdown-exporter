@@ -20,6 +20,56 @@ export interface ApiConversationItem {
   title: string;
   create_time: number;
   update_time?: number;
+  /** null = 普通会话；`g-p-` = 项目会话；`g-`（非 g-p-）= 自定义 GPT 会话 */
+  gizmo_id?: string | null;
+}
+
+/* ---- 项目（snorlax gizmo） ----
+ * 端点与字段事实见 research/project-api 分支的 docs/research/project-gizmo-api.md。 */
+
+/* 只声明实际读取的字段。完整响应形状（instructions / num_interactions /
+ * gizmo_type / memory_* 等）见 research 文档，用不到就不进类型。 */
+export interface ApiProject {
+  id: string;
+  display?: {
+    name?: string;
+    description?: string;
+  } | null;
+}
+
+/** 项目下拉用的精简形态（跨 context 共享） */
+export interface Project {
+  id: string;
+  name: string;
+}
+
+/** sidebar 的列表项：真实响应是 `items[].gizmo.gizmo`，部分来源只有一层 `items[].gizmo` */
+export interface ApiProjectSidebarItem {
+  gizmo?: {
+    id?: string;
+    gizmo?: ApiProject | null;
+    display?: ApiProject['display'];
+    conversations?: unknown;
+  } | null;
+}
+
+export interface ApiProjectSidebar {
+  items?: ApiProjectSidebarItem[];
+  cursor?: string | null;
+}
+
+/** 项目会话列表项：时间字段是 **ISO 8601 字符串**（主列表是 epoch 秒） */
+export interface ApiProjectConversationItem {
+  id: string;
+  title: string;
+  create_time?: string | number;
+  update_time?: string | number;
+  gizmo_id?: string | null;
+}
+
+export interface ApiProjectConversations {
+  items?: ApiProjectConversationItem[];
+  cursor?: string | null;
 }
 
 export interface ApiConversations {
