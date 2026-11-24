@@ -447,6 +447,7 @@ describe('background popup 转发', () => {
       includeFrontmatter: true,
       includeTimestamps: false,
       timestamp24h: true,
+      fenceMessages: true,
     });
 
     expect(response).toEqual({ ok: true });
@@ -456,6 +457,7 @@ describe('background popup 转发', () => {
       includeFrontmatter: true,
       includeTimestamps: false,
       timestamp24h: true,
+      fenceMessages: true,
     });
   });
 

@@ -266,6 +266,7 @@ describe('popup 选择与导出', () => {
       includeFrontmatter: true,
       includeTimestamps: false,
       timestamp24h: true,
+      fenceMessages: false,
     });
   });
 
@@ -335,6 +336,25 @@ describe('popup 选择与导出', () => {
       includeFrontmatter: false,
       includeTimestamps: true,
     });
+  });
+
+  it('围栏选项默认关闭，勾选后随导出请求提交', async () => {
+    const send = await loadWithConversations();
+
+    const fence = q<HTMLInputElement>('[data-role=\'fence\']');
+
+    expect(fence.checked).toBe(false);
+
+    fence.checked = true;
+    q<HTMLButtonElement>('[data-role=\'select-all\']').click();
+    q<HTMLButtonElement>('[data-role=\'export-selected\']').click();
+    await flush();
+
+    const exportCall = send.mock.calls.find(
+      call => (call[0] as { type?: string }).type === 'REQUEST_EXPORT_CONVERSATIONS',
+    );
+
+    expect(exportCall?.[0]).toMatchObject({ fenceMessages: true });
   });
 });
 

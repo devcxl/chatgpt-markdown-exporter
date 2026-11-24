@@ -58,10 +58,17 @@ export type MarkdownOptions = {
 };
 ```
 
-`renderMessageBlock(author, timestamp, body, options)`：
+渲染在 `renderContent` 的循环内分流到两个纯函数（各司一种形态，互不影响）：
 
-- `options.fenceMessages` 为假 → 现有拼接逻辑，一字不改
-- 为真 → 计算围栏长度（`maxBacktickRun(body) + 1`，最小 3），按 §2 拼接
+```ts
+return options.fenceMessages
+  ? renderFencedBlock(author, timestamp, body)   // 围栏块
+  : renderSectionBlock(author, timestamp, body); // --- + ## 角色（原 renderMessageBlock，仅改名）
+```
+
+- `renderSectionBlock` 即改动前的 `renderMessageBlock`，**拼接逻辑一字未改**（只是名字改成与 `renderFencedBlock` 对称）
+- `renderFencedBlock` 计算围栏长度（正文最长连续反引号 + 1，最小 3），按 §2 拼接
+- 正文只在循环里 `trim()` 一次，两个分支共用
 
 `messageCount` 的计数口径不变（仍是渲染出的块数）。
 
@@ -106,12 +113,13 @@ ADR-2026-07-31 D5 已定「不剥离 Markdown 语法标记」。开启围栏后�
 | 开启，纯文本消息 | 外层 3 反引号 + `text`，首行为角色名 |
 | 开启，正文含 ` ```ts ` | 外层 4 反引号，正文内围栏原样保留、不被截断 |
 | 开启，正文含 4 连反引号 | 外层 5 反引号 |
+| 开启，正文只含 1–2 个反引号 | 外层仍是 3 反引号（不足 3 时按 3 补齐） |
 | 开启 + 时间戳 | 首行为 `角色 · HH:MM` |
 | 开启，插件消息 | 首行 `插件 (name)`，空格不影响围栏 |
 | 开启，`includeFrontmatter` 同时为真 | frontmatter 正常，`message_count` 不变 |
 | 关闭时 `fenceMessages` 缺省 | 走默认关，输出不变 |
 
-`src/markdown/conversation-to-markdown.test.ts` 追加上面第 7 条。`src/entrypoints/popup/index.test.ts` 追加「勾选后消息体带 `fenceMessages: true`」。
+`src/markdown/conversation-to-markdown.test.ts` 追加「开启 + frontmatter 时 `message_count` 不变」。`src/entrypoints/popup/index.test.ts` 追加「勾选后消息体带 `fenceMessages: true`」。`src/entrypoints/chatgpt.content/index.test.ts` 追加端到端透传：`fenceMessages: true` 时下载内容里出现围栏块（防止字段在 IPC 途中被丢）。
 
 ## 6. 影响面
 

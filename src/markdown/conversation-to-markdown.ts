@@ -11,6 +11,8 @@ export type MarkdownOptions = {
   includeFrontmatter: boolean;
   includeTimestamps: boolean;
   timestamp24h: boolean;
+  /** 每条消息渲染为围栏代码块（取代 `---` + `## 角色`）。见 ADR 2026-11-24-fenced-message-format */
+  fenceMessages: boolean;
 };
 
 export type MarkdownMetadata = {
@@ -66,13 +68,15 @@ function renderContent(
       const author = transformAuthor(message.author);
       const timestamp = buildTimestamp(message, options);
 
-      const body = transformContent(message);
+      const body = transformContent(message).trim();
 
-      if (!body.trim()) return null;
+      if (!body) return null;
 
       messageCount += 1;
 
-      return renderMessageBlock(author, timestamp, body.trim());
+      return options.fenceMessages
+        ? renderFencedBlock(author, timestamp, body)
+        : renderSectionBlock(author, timestamp, body);
     })
     .filter(Boolean);
   return { content: blocks.join('\n\n'), messageCount };
@@ -111,7 +115,7 @@ function transformAuthor(author: ConversationNodeMessage['author']): string {
   }
 }
 
-function renderMessageBlock(author: string, timestamp: string, body: string): string {
+function renderSectionBlock(author: string, timestamp: string, body: string): string {
   return [
     '---',
     `## ${author}`,
@@ -120,6 +124,38 @@ function renderMessageBlock(author: string, timestamp: string, body: string): st
   ]
     .filter(Boolean)
     .join('\n\n');
+}
+
+/* 围栏消息块：整条消息（含角色名与时间）作为一个代码块。
+ *
+ * info string 固定为 `text` 而不是角色名 —— 中文角色名作 info string 会让
+ * highlight.js 落到自动侦测并把正文误染成随机语言，Python-Markdown 系遇到
+ * 带空格的作者名（`Plugin (name)`）还会把整块打散成段落。
+ * 详见 ADR 2026-11-24-fenced-message-format 与 research/fence-info-string。
+ *
+ * 外层围栏长度按正文最长连续反引号 + 1，避免正文里的 ``` 提前闭合外层。 */
+function renderFencedBlock(author: string, timestamp: string, body: string): string {
+  const fence = '`'.repeat(Math.max(3, longestBacktickRun(body) + 1));
+  const header = timestamp ? `${author} · ${timestamp}` : author;
+
+  return `${fence}text\n${header}\n\n${body}\n${fence}`;
+}
+
+function longestBacktickRun(text: string): number {
+  let longest = 0;
+  let current = 0;
+
+  for (const char of text) {
+    if (char === '`') {
+      current += 1;
+      longest = Math.max(longest, current);
+      continue;
+    }
+
+    current = 0;
+  }
+
+  return longest;
 }
 
 function buildTimestamp(

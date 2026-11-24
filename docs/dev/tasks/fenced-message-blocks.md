@@ -18,7 +18,7 @@ status: ready
 
 | 文件 | 操作 |
 |---|---|
-| `src/markdown/conversation-to-markdown.ts` | 修改（`MarkdownOptions`、`renderMessageBlock`） |
+| `src/markdown/conversation-to-markdown.ts` | 修改（`MarkdownOptions`、`renderSectionBlock` / `renderFencedBlock`） |
 | `src/markdown/conversation-render.test.ts` | 追加用例 |
 | `src/markdown/conversation-to-markdown.test.ts` | 追加用例 |
 | `src/shared/messages.ts` | `RequestExportConversationsMessage` 增加 `fenceMessages` |
@@ -34,7 +34,7 @@ status: ready
 2. 新增纯函数 `fenceMessageBlock(author, timestamp, body): string`：
    - `n = max(3, 正文最长连续反引号数 + 1)`
    - 首行 `author` 或 `author · HH:MM`，与正文之间一个空行
-3. `renderMessageBlock` 按 `options.fenceMessages` 二选一；关闭分支**代码原样不动**
+3. `renderContent` 按 `options.fenceMessages` 分流到 `renderFencedBlock` / `renderSectionBlock`；后者即原 `renderMessageBlock`，拼接逻辑**原样不动**
 4. `messageCount` 口径不变
 5. i18n：`options.fenceMessages` = `Render each message as a fenced code block` / `每条消息渲染为围栏代码块`
 

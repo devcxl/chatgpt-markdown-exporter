@@ -11,6 +11,7 @@ import {
   type DownloadMarkdownMessage,
   type DownloadZipMessage,
   type RequestConversationListMessage,
+  type RequestExportConversationsMessage,
   type RuntimeResponse,
 } from '../shared/messages';
 import { buildZipBlobFromEntries } from '../shared/zip';
@@ -104,7 +105,7 @@ export default defineBackground(() => {
   }
 
   async function handlePopupExportRequest(
-    request: { chatIds: string[]; includeFrontmatter: boolean; includeTimestamps: boolean; timestamp24h: boolean },
+    request: RequestExportConversationsMessage,
   ): Promise<RuntimeResponse> {
     const tabId = await findChatGPTTabId();
 
@@ -125,6 +126,7 @@ export default defineBackground(() => {
         includeFrontmatter: request.includeFrontmatter,
         includeTimestamps: request.includeTimestamps,
         timestamp24h: request.timestamp24h,
+        fenceMessages: request.fenceMessages,
       }) as RuntimeResponse;
     }
     catch (error) {

@@ -35,6 +35,7 @@ const exportBtn = el<HTMLButtonElement>('[data-role=\'export-selected\']');
 const frontmatterInput = el<HTMLInputElement>('[data-role=\'frontmatter\']');
 const timestampsInput = el<HTMLInputElement>('[data-role=\'timestamps\']');
 const timestamp24hInput = el<HTMLInputElement>('[data-role=\'timestamp24h\']');
+const fenceInput = el<HTMLInputElement>('[data-role=\'fence\']');
 
 const exportLabelEl = el<HTMLSpanElement>('[data-role=\'export-selected-label\']');
 
@@ -238,6 +239,7 @@ async function exportSelected(): Promise<void> {
       includeFrontmatter: frontmatterInput.checked,
       includeTimestamps: timestampsInput.checked,
       timestamp24h: timestamp24hInput.checked,
+      fenceMessages: fenceInput.checked,
     }) as { ok: boolean; error?: string };
 
     if (result?.ok) {

@@ -29,6 +29,8 @@ export type RequestExportConversationsMessage = {
   includeFrontmatter: boolean;
   includeTimestamps: boolean;
   timestamp24h: boolean;
+  /** 每条消息渲染为围栏代码块，取代 `---` + `## 角色` */
+  fenceMessages: boolean;
 };
 
 /** Content script 向 background 报到 */

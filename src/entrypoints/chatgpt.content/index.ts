@@ -46,6 +46,7 @@ export default defineContentScript({
             includeFrontmatter: message.includeFrontmatter,
             includeTimestamps: message.includeTimestamps,
             timestamp24h: message.timestamp24h,
+            fenceMessages: message.fenceMessages,
           },
         );
       }
@@ -159,7 +160,7 @@ export default defineContentScript({
         const conversation = processConversation(rawConversation);
         const markdown = conversationToMarkdown(
           conversation,
-          { includeFrontmatter: true, includeTimestamps: false, timestamp24h: true },
+          { includeFrontmatter: true, includeTimestamps: false, timestamp24h: true, fenceMessages: false },
           {
             sourceUrl: chatId.startsWith('__share__')
               ? location.href

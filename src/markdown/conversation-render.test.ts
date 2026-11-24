@@ -6,6 +6,7 @@ import type {
   ConversationNodeMessage,
   ConversationResult,
 } from '../shared/chatgpt-types';
+import type { MarkdownOptions } from './conversation-to-markdown.ts';
 import { conversationToMarkdown } from './conversation-to-markdown.ts';
 
 /* 本文件覆盖 conversation-to-markdown 的渲染分支（内容类型 → Markdown 片段）。
@@ -15,6 +16,7 @@ const options = {
   includeFrontmatter: false,
   includeTimestamps: false,
   timestamp24h: true,
+  fenceMessages: false,
 };
 
 const metadata = {
@@ -52,9 +54,13 @@ function createConversation(messages: ConversationNodeMessage[]): ConversationRe
 }
 
 /** 去掉标题行，只保留消息正文 */
-function bodyOf(conversation: ConversationResult): string {
-  const output = conversationToMarkdown(conversation, options, metadata);
+function bodyWith(conversation: ConversationResult, renderOptions: MarkdownOptions): string {
+  const output = conversationToMarkdown(conversation, renderOptions, metadata);
   return output.slice(output.indexOf('\n\n') + 2);
+}
+
+function bodyOf(conversation: ConversationResult): string {
+  return bodyWith(conversation, options);
 }
 
 function renderOne(message: ConversationNodeMessage): string {
@@ -574,7 +580,7 @@ describe('消息过滤与排版', () => {
       createConversation([
         createMessage('assistant', { content_type: 'text', parts: ['x'] }, { create_time: 1700000000 }),
       ]),
-      { includeFrontmatter: false, includeTimestamps: true, timestamp24h: true },
+      { ...options, includeTimestamps: true },
       metadata,
     );
 
@@ -586,7 +592,7 @@ describe('消息过滤与排版', () => {
       createConversation([
         createMessage('assistant', { content_type: 'text', parts: ['x'] }),
       ]),
-      { includeFrontmatter: false, includeTimestamps: true, timestamp24h: true },
+      { ...options, includeTimestamps: true },
       metadata,
     );
 
@@ -598,7 +604,7 @@ describe('消息过滤与排版', () => {
       createConversation([
         createMessage('assistant', { content_type: 'text', parts: ['x'] }, { create_time: 1700000000 }),
       ]),
-      { includeFrontmatter: false, includeTimestamps: true, timestamp24h: false },
+      { ...options, includeTimestamps: true, timestamp24h: false },
       metadata,
     );
 
@@ -642,7 +648,7 @@ describe('frontmatter', () => {
   it('包含 frontmatter 时输出 YAML 头与字段', () => {
     const output = conversationToMarkdown(
       conversation,
-      { includeFrontmatter: true, includeTimestamps: false, timestamp24h: true },
+      { ...options, includeFrontmatter: true },
       metadata,
     );
 
@@ -662,7 +668,7 @@ describe('frontmatter', () => {
   it('createTime 为 0 时时间字段输出空串', () => {
     const output = conversationToMarkdown(
       conversation,
-      { includeFrontmatter: true, includeTimestamps: false, timestamp24h: true },
+      { ...options, includeFrontmatter: true },
       metadata,
     );
 
@@ -672,7 +678,7 @@ describe('frontmatter', () => {
   it('未传 metadata 时使用默认 sourceUrl 与当前时间', () => {
     const output = conversationToMarkdown(
       conversation,
-      { includeFrontmatter: true, includeTimestamps: false, timestamp24h: true },
+      { ...options, includeFrontmatter: true },
     );
 
     expect(output).toContain('/c/test-conversation');
@@ -683,10 +689,142 @@ describe('frontmatter', () => {
     const tricky = { ...conversation, title: 'a "quoted" title' };
     const output = conversationToMarkdown(
       tricky,
-      { includeFrontmatter: true, includeTimestamps: false, timestamp24h: true },
+      { ...options, includeFrontmatter: true },
       metadata,
     );
 
     expect(output).toContain('title: "a \\"quoted\\" title"');
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  围栏消息块（fenceMessages）                                         */
+/* ------------------------------------------------------------------ */
+
+/* 格式契约见 docs/dev/specs/fenced-message-blocks.md §2：
+ * info string 固定 `text`（不本地化），角色名与时间移到围栏内首行，
+ * 外层围栏长度按正文最长连续反引号 + 1（最小 3）。 */
+
+describe('围栏消息块', () => {
+  const fenced = {
+    includeFrontmatter: false,
+    includeTimestamps: false,
+    timestamp24h: true,
+    fenceMessages: true,
+  };
+
+  function textMessage(
+    role: ConversationNodeMessage['author']['role'],
+    text: string,
+    overrides: Partial<ConversationNodeMessage> = {},
+  ): ConversationNodeMessage {
+    return createMessage(role, { content_type: 'text', parts: [text] }, overrides);
+  }
+
+  function renderFenced(conversation: ConversationResult): string {
+    return bodyWith(conversation, fenced);
+  }
+
+  it('关闭时沿用 --- 与 ## 角色，不出现围栏', () => {
+    const body = bodyOf(createConversation([textMessage('user', 'hi')]));
+
+    expect(body).toContain('---');
+    expect(body).toContain(`## ${t('markdown.authorUser')}`);
+    expect(body).not.toContain('```');
+  });
+
+  it('开启时用 text 围栏包裹，首行为角色名', () => {
+    const body = renderFenced(createConversation([textMessage('user', 'hi')]));
+
+    expect(body).toBe(`\`\`\`text\n${t('markdown.authorUser')}\n\nhi\n\`\`\`\n`);
+  });
+
+  it('开启时不再输出 --- 与 ## 角色', () => {
+    const body = renderFenced(createConversation([textMessage('assistant', 'yo')]));
+
+    expect(body).not.toContain('---');
+    expect(body).not.toContain('## ');
+  });
+
+  it('正文含三个反引号时外层升为四个，内层原样保留', () => {
+    const body = renderFenced(createConversation([
+      textMessage('assistant', '看这段：\n\n```ts\nconst a = 1;\n```'),
+    ]));
+
+    expect(body.startsWith('````text\n')).toBe(true);
+    expect(body.endsWith('\n````\n')).toBe(true);
+    expect(body).toContain('```ts\nconst a = 1;\n```');
+  });
+
+  it('正文含四个反引号时外层升为五个', () => {
+    const body = renderFenced(createConversation([
+      textMessage('assistant', '````\nraw\n````'),
+    ]));
+
+    expect(body.startsWith('`````text\n')).toBe(true);
+    expect(body.endsWith('\n`````\n')).toBe(true);
+  });
+
+  it('开启时间戳时首行为「角色 · HH:MM」', () => {
+    const body = bodyWith(
+      createConversation([
+        textMessage('user', 'hi', { create_time: 1700000000 }),
+      ]),
+      { ...fenced, includeTimestamps: true },
+    );
+
+    expect(body).toMatch(
+      new RegExp(`^\`\`\`text\\n${t('markdown.authorUser')} · \\d{2}:\\d{2}\\n\\n`),
+    );
+  });
+
+  it('插件消息的带空格作者名不影响围栏', () => {
+    const body = renderFenced(createConversation([
+      createMessage(
+        'tool',
+        { content_type: 'multimodal_text', parts: ['result'] },
+        { author: { role: 'tool', name: 'browser' } },
+      ),
+    ]));
+
+    expect(body.startsWith('```text\n')).toBe(true);
+    expect(body).toContain(`${t('markdown.authorPlugin')} (browser)\n\nresult`);
+  });
+
+  it('多条消息各自成块，块间一个空行', () => {
+    const body = renderFenced(createConversation([
+      textMessage('user', 'q'),
+      textMessage('assistant', 'a'),
+    ]));
+
+    expect(body).toBe(
+      `\`\`\`text\n${t('markdown.authorUser')}\n\nq\n\`\`\`\n\n`
+      + `\`\`\`text\n${t('markdown.authorChatGPT')}\n\na\n\`\`\`\n`,
+    );
+  });
+
+  it('正文只含一两个反引号时外层仍是三个（不足三按三补齐）', () => {
+    const body = renderFenced(createConversation([
+      textMessage('assistant', '行内 `code` 与 ``double`` 都出现'),
+    ]));
+
+    expect(body.startsWith('```text\n')).toBe(true);
+    expect(body.endsWith('\n```\n')).toBe(true);
+    expect(body).toContain('行内 `code` 与 ``double`` 都出现');
+  });
+
+  it('fenceMessages 缺省（老消息体）时按关闭处理', () => {
+    // 运行时兼容：旧版本的调用方不会带这个字段，不能因此抛错或改变输出
+    const legacyOptions = {
+      includeFrontmatter: false,
+      includeTimestamps: false,
+      timestamp24h: true,
+    } as unknown as MarkdownOptions;
+
+    const body = bodyWith(createConversation([textMessage('user', 'hi')]), legacyOptions);
+
+    expect(body).toContain('---');
+    expect(body).toContain(`## ${t('markdown.authorUser')}`);
+    expect(body).not.toContain('```text');
   });
 });

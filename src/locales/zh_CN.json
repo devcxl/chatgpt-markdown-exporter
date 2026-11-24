@@ -23,7 +23,8 @@
   "options": {
     "frontmatter": "包含 YAML frontmatter",
     "timestamps": "包含消息时间",
-    "timestamp24h": "使用 24 小时制"
+    "timestamp24h": "使用 24 小时制",
+    "fenceMessages": "每条消息渲染为围栏代码块"
   },
   "popup": {
     "title": "ChatGPT Exporter",

@@ -209,6 +209,7 @@ describe('content script 批量导出', () => {
     includeFrontmatter: true,
     includeTimestamps: false,
     timestamp24h: true,
+    fenceMessages: false,
   };
 
   it('单个会话无图片时直接请求下载 Markdown', async () => {
@@ -219,6 +220,18 @@ describe('content script 批量导出', () => {
 
     expect(response).toEqual({ ok: true });
     expect(downloadMessage(send)).toMatchObject({ type: 'DOWNLOAD_MARKDOWN' });
+  });
+
+  it.each([true, false])('把 fenceMessages=%s 原样透传给渲染层', async (flag) => {
+    stubDownload();
+    const handle = await loadContentScript();
+
+    await handle({ ...exportOptions, fenceMessages: flag });
+
+    const calls = mocks.conversationToMarkdown.mock.calls;
+    const options = calls.at(-1)?.[1] as { fenceMessages?: boolean };
+
+    expect(options.fenceMessages).toBe(flag);
   });
 
   it('会话含图片时打包为 ZIP 并包含资源条目', async () => {
@@ -381,6 +394,16 @@ describe('content script 当前会话导出', () => {
     await runCurrentExport();
 
     expect(mocks.showToast).toHaveBeenCalledWith(expect.any(String), 'info');
+  });
+
+  it('页内按钮固定不带围栏格式', async () => {
+    stubDownload();
+
+    await runCurrentExport();
+
+    const options = mocks.conversationToMarkdown.mock.calls.at(-1)?.[1] as { fenceMessages?: boolean };
+
+    expect(options.fenceMessages).toBe(false);
   });
 
   it('分享页使用当前页面 URL 作为 sourceUrl', async () => {

@@ -17,6 +17,7 @@ const baseOptions: MarkdownOptions = {
   includeFrontmatter: true,
   includeTimestamps: false,
   timestamp24h: true,
+  fenceMessages: false,
 };
 
 const metadata = {
@@ -160,6 +161,27 @@ describe('conversationToMarkdown frontmatter stats', () => {
     const output = conversationToMarkdown(conversation, baseOptions, metadata);
 
     expect(extractFrontmatter(output).message_count).toBe('1');
+  });
+
+  it('keeps message_count unchanged when fenced blocks are enabled', () => {
+    const conversation = createConversation([
+      createMessage('user', { content_type: 'text', parts: ['问题'] }),
+      createMessage('assistant', { content_type: 'text', parts: ['答案'] }),
+    ]);
+
+    const plain = conversationToMarkdown(conversation, baseOptions, metadata);
+    const fenced = conversationToMarkdown(
+      conversation,
+      { ...baseOptions, fenceMessages: true },
+      metadata,
+    );
+
+    expect(extractFrontmatter(fenced).message_count).toBe('2');
+    expect(extractFrontmatter(fenced).message_count)
+      .toBe(extractFrontmatter(plain).message_count);
+    // 正文形态确实换了，否则这条用例会因为两边都没围栏而"通过"
+    expect(extractBody(fenced)).toContain('```text');
+    expect(extractBody(plain)).not.toContain('```text');
   });
 
   it('outputs nothing stat-related and stays byte-identical when includeFrontmatter is false', () => {

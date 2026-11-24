@@ -23,7 +23,8 @@
   "options": {
     "frontmatter": "Include YAML frontmatter",
     "timestamps": "Include message timestamps",
-    "timestamp24h": "Use 24-hour format"
+    "timestamp24h": "Use 24-hour format",
+    "fenceMessages": "Render each message as a fenced code block"
   },
   "popup": {
     "title": "ChatGPT Exporter",
