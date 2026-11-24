@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>围栏消息块 · 四种格式对照（prototype）</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; font: 14px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; color: #111; background: #f6f7f9; }
+  .banner { max-width: 1800px; margin: 0 auto 20px; padding: 14px 18px; background: #fff8e1; border: 1px solid #f0d58c; border-radius: 10px; }
+  .banner strong { display: block; margin-bottom: 4px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; max-width: 1800px; margin: 0 auto; }
+  .card { background: #fff; border: 1px solid #e2e6ea; border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+  .card h2 { margin: 0; font-size: 15px; }
+  .note { margin: 4px 0 0; font-size: 12px; color: #667; }
+  .rendered { border-top: 1px solid #eef1f4; padding-top: 12px; overflow-x: auto; }
+  .rendered pre { background: #f6f8fa; padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
+  .rendered code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+  .rendered h3 { font-size: 13px; margin: 0 0 6px; }
+  details { border-top: 1px dashed #dfe4e8; padding-top: 10px; }
+  summary { cursor: pointer; font-size: 12px; color: #556; }
+  details pre { white-space: pre-wrap; font-size: 12px; color: #445; }
+</style>
+</head>
+<body>
+<div class="banner">
+  <strong>这是一次性原型，不进 master。看到什么就是什么，不需要跑任何命令。</strong>
+  四种格式渲染的是<em>同一段对话</em>：用户消息里嵌了 ts 代码块（考验外层围栏长度）、助手消息含列表与行内代码、插件消息含 json 与带空格的作者名 <code>Plugin (browser)</code>。
+  同时在 Obsidian / Typora / VS Code 里打开同目录的 <code>.md</code> 文件，可以对照真实编辑器里的效果。
+</div>
+<div class="grid">
+
+  <section class="card">
+    <header>
+      <h2>方案 A：`text` 围栏 + 角色名在块内首行</h2>
+      <p class="note">围栏语言标识固定 `text`；本地化角色名与时间作为块内第一行。块内所有内容都会被当成代码。</p>
+    </header>
+    <div class="rendered"><pre><code class="language-text">用户 · 12:34
+
+帮我看看这个函数为什么慢：
+
+```ts
+export function sum(xs: number[]) {
+  return xs.map(x =&gt; x * 2).filter(Boolean).reduce((a, b) =&gt; a + b, 0);
+}
+```
+
+我怀疑是 `map` + `filter` 链的问题。
+</code></pre>
+<pre><code class="language-text">ChatGPT · 12:34
+
+主要开销在三次数组遍历。建议合并成一次 `reduce`：
+
+1. `map` 生成中间数组
+2. `filter(Boolean)` 再遍历一次
+3. `reduce` 第三次
+
+改成单次循环可以省掉两次数组分配。
+</code></pre>
+<pre><code class="language-text">插件 (browser) · 12:34
+
+```json
+{ &quot;url&quot;: &quot;https://example.com&quot;, &quot;status&quot;: 200 }
+```
+</code></pre>
+</div>
+    <details>
+      <summary>原始 Markdown（会写进文件的内容）</summary>
+      <pre># 方案 A：`text` 围栏 + 角色名在块内首行
+
+&gt; 围栏语言标识固定 `text`；本地化角色名与时间作为块内第一行。块内所有内容都会被当成代码。
+
+---
+
+````text
+用户 · 12:34
+
+帮我看看这个函数为什么慢：
+
+```ts
+export function sum(xs: number[]) {
+  return xs.map(x =&gt; x * 2).filter(Boolean).reduce((a, b) =&gt; a + b, 0);
+}
+```
+
+我怀疑是 `map` + `filter` 链的问题。
+````
+
+```text
+ChatGPT · 12:34
+
+主要开销在三次数组遍历。建议合并成一次 `reduce`：
+
+1. `map` 生成中间数组
+2. `filter(Boolean)` 再遍历一次
+3. `reduce` 第三次
+
+改成单次循环可以省掉两次数组分配。
+```
+
+````text
+插件 (browser) · 12:34
+
+```json
+{ "url": "https://example.com", "status": 200 }
+```
+````
+</pre>
+    </details>
+  </section>
+
+  <section class="card">
+    <header>
+      <h2>方案 B：ASCII 角色名当围栏标识</h2>
+      <p class="note">围栏语言标识用 `User` / `ChatGPT` / `Plugin`（英文，不随 locale 变）；块内第一行放本地化角色名。最接近 #10 与 AMO 用户的原意。</p>
+    </header>
+    <div class="rendered"><pre><code class="language-User">用户 · 12:34
+
+帮我看看这个函数为什么慢：
+
+```ts
+export function sum(xs: number[]) {
+  return xs.map(x =&gt; x * 2).filter(Boolean).reduce((a, b) =&gt; a + b, 0);
+}
+```
+
+我怀疑是 `map` + `filter` 链的问题。
+</code></pre>
+<pre><code class="language-ChatGPT">ChatGPT · 12:34
+
+主要开销在三次数组遍历。建议合并成一次 `reduce`：
+
+1. `map` 生成中间数组
+2. `filter(Boolean)` 再遍历一次
+3. `reduce` 第三次
+
+改成单次循环可以省掉两次数组分配。
+</code></pre>
+<pre><code class="language-Plugin">插件 (browser) · 12:34
+
+```json
+{ &quot;url&quot;: &quot;https://example.com&quot;, &quot;status&quot;: 200 }
+```
+</code></pre>
+</div>
+    <details>
+      <summary>原始 Markdown（会写进文件的内容）</summary>
+      <pre># 方案 B：ASCII 角色名当围栏标识
+
+&gt; 围栏语言标识用 `User` / `ChatGPT` / `Plugin`（英文，不随 locale 变）；块内第一行放本地化角色名。最接近 #10 与 AMO 用户的原意。
+
+---
+
+````User
+用户 · 12:34
+
+帮我看看这个函数为什么慢：
+
+```ts
+export function sum(xs: number[]) {
+  return xs.map(x =&gt; x * 2).filter(Boolean).reduce((a, b) =&gt; a + b, 0);
+}
+```
+
+我怀疑是 `map` + `filter` 链的问题。
+````
+
+```ChatGPT
+ChatGPT · 12:34
+
+主要开销在三次数组遍历。建议合并成一次 `reduce`：
+
+1. `map` 生成中间数组
+2. `filter(Boolean)` 再遍历一次
+3. `reduce` 第三次
+
+改成单次循环可以省掉两次数组分配。
+```
+
+````Plugin
+插件 (browser) · 12:34
+
+```json
+{ "url": "https://example.com", "status": 200 }
+```
+````
+</pre>
+    </details>
+  </section>
+
+  <section class="card">
+    <header>
+      <h2>方案 C：角色名在围栏外做标题 + `text` 围栏</h2>
+      <p class="note">角色名与时间不进围栏（仍用 `###` 标题），只有正文是代码块。角色名仍是可渲染的 Markdown。</p>
+    </header>
+    <div class="rendered"><h3>用户 · 12:34</h3>
+<pre><code class="language-text">帮我看看这个函数为什么慢：
+
+```ts
+export function sum(xs: number[]) {
+  return xs.map(x =&gt; x * 2).filter(Boolean).reduce((a, b) =&gt; a + b, 0);
+}
+```
+
+我怀疑是 `map` + `filter` 链的问题。
+</code></pre>
+<h3>ChatGPT · 12:34</h3>
+<pre><code class="language-text">主要开销在三次数组遍历。建议合并成一次 `reduce`：
+
+1. `map` 生成中间数组
+2. `filter(Boolean)` 再遍历一次
+3. `reduce` 第三次
+
+改成单次循环可以省掉两次数组分配。
+</code></pre>
+<h3>插件 (browser) · 12:34</h3>
+<pre><code class="language-text">```json
+{ &quot;url&quot;: &quot;https://example.com&quot;, &quot;status&quot;: 200 }
+```
+</code></pre>
+</div>
+    <details>
+      <summary>原始 Markdown（会写进文件的内容）</summary>
+      <pre># 方案 C：角色名在围栏外做标题 + `text` 围栏
+
+&gt; 角色名与时间不进围栏（仍用 `###` 标题），只有正文是代码块。角色名仍是可渲染的 Markdown。
+
+---
+
+### 用户 · 12:34
+
+````text
+帮我看看这个函数为什么慢：
+
+```ts
+export function sum(xs: number[]) {
+  return xs.map(x =&gt; x * 2).filter(Boolean).reduce((a, b) =&gt; a + b, 0);
+}
+```
+
+我怀疑是 `map` + `filter` 链的问题。
+````
+
+### ChatGPT · 12:34
+
+```text
+主要开销在三次数组遍历。建议合并成一次 `reduce`：
+
+1. `map` 生成中间数组
+2. `filter(Boolean)` 再遍历一次
+3. `reduce` 第三次
+
+改成单次循环可以省掉两次数组分配。
+```
+
+### 插件 (browser) · 12:34
+
+````text
+```json
+{ "url": "https://example.com", "status": 200 }
+```
+````
+</pre>
+    </details>
+  </section>
+
+  <section class="card">
+    <header>
+      <h2>方案 D：保留现有 `---` + `## 角色`，正文包进围栏</h2>
+      <p class="note">改动最小：分隔线、角色标题、时间引用全部保留，只把正文代码块化。围栏模式下 `---` 与 `##` 依然存在。</p>
+    </header>
+    <div class="rendered"><hr>
+<h2>用户</h2>
+<blockquote>
+<p>12:34</p>
+</blockquote>
+<pre><code class="language-text">帮我看看这个函数为什么慢：
+
+```ts
+export function sum(xs: number[]) {
+  return xs.map(x =&gt; x * 2).filter(Boolean).reduce((a, b) =&gt; a + b, 0);
+}
+```
+
+我怀疑是 `map` + `filter` 链的问题。
+</code></pre>
+<hr>
+<h2>ChatGPT</h2>
+<blockquote>
+<p>12:34</p>
+</blockquote>
+<pre><code class="language-text">主要开销在三次数组遍历。建议合并成一次 `reduce`：
+
+1. `map` 生成中间数组
+2. `filter(Boolean)` 再遍历一次
+3. `reduce` 第三次
+
+改成单次循环可以省掉两次数组分配。
+</code></pre>
+<hr>
+<h2>插件 (browser)</h2>
+<blockquote>
+<p>12:34</p>
+</blockquote>
+<pre><code class="language-text">```json
+{ &quot;url&quot;: &quot;https://example.com&quot;, &quot;status&quot;: 200 }
+```
+</code></pre>
+</div>
+    <details>
+      <summary>原始 Markdown（会写进文件的内容）</summary>
+      <pre># 方案 D：保留现有 `---` + `## 角色`，正文包进围栏
+
+&gt; 改动最小：分隔线、角色标题、时间引用全部保留，只把正文代码块化。围栏模式下 `---` 与 `##` 依然存在。
+
+---
+
+---
+
+## 用户
+
+&gt; 12:34
+
+````text
+帮我看看这个函数为什么慢：
+
+```ts
+export function sum(xs: number[]) {
+  return xs.map(x =&gt; x * 2).filter(Boolean).reduce((a, b) =&gt; a + b, 0);
+}
+```
+
+我怀疑是 `map` + `filter` 链的问题。
+````
+
+---
+
+## ChatGPT
+
+&gt; 12:34
+
+```text
+主要开销在三次数组遍历。建议合并成一次 `reduce`：
+
+1. `map` 生成中间数组
+2. `filter(Boolean)` 再遍历一次
+3. `reduce` 第三次
+
+改成单次循环可以省掉两次数组分配。
+```
+
+---
+
+## 插件 (browser)
+
+&gt; 12:34
+
+````text
+```json
+{ "url": "https://example.com", "status": 200 }
+```
+````
+</pre>
+    </details>
+  </section>
+</div>
+</body>
+</html>
